@@ -55,21 +55,58 @@ done
 
 if [ ${#MISSING_PKGS[@]} -gt 0 ]; then
   echo -e "${YELLOW}[+] Menginstall paket yang dibutuhkan: ${MISSING_PKGS[*]}...${NC}"
-  apt-get update -qq && apt-get install -y -qq "${MISSING_PKGS[@]}"
+  apt-get update -qq && apt-get install -y -qq "${MISSING_PKGS[@]}" 2>/dev/null || true
 fi
 
-# 4. Check & Install Docker / Docker Compose
+# 4. Check & Install Docker Engine
 echo -e "\n${BLUE}[2/6] Memeriksa Docker Engine & Docker Compose v2...${NC}"
 if ! command -v docker &>/dev/null; then
   echo -e "${YELLOW}[+] Docker belum terpasang. Menginstall Docker CE resmi otomatis...${NC}"
   curl -fsSL https://get.docker.com | sh
-  systemctl enable --now docker
+  systemctl enable --now docker 2>/dev/null || true
   echo -e "${GREEN}[+] Docker CE berhasil terpasang.${NC}"
 fi
 
+# Ensure Docker daemon is actively running
+if ! docker info &>/dev/null; then
+  echo -e "${YELLOW}[+] Menyalakan Docker daemon...${NC}"
+  systemctl start docker 2>/dev/null || service docker start 2>/dev/null || true
+fi
+
+# 4b. Check & Install Docker Compose v2 (Bulletproof: tries apt then falls back to official binary)
 if ! docker compose version &>/dev/null; then
-  echo -e "${YELLOW}[+] Menginstall plugin Docker Compose v2...${NC}"
-  apt-get update -qq && apt-get install -y -qq docker-compose-plugin
+  echo -e "${YELLOW}[+] Menginstall Docker Compose v2...${NC}"
+
+  # Attempt apt install first (silently ignore if repo lacks package)
+  apt-get update -qq && apt-get install -y -qq docker-compose-plugin 2>/dev/null || true
+
+  # If still not available via apt, download official standalone binary from GitHub releases
+  if ! docker compose version &>/dev/null; then
+    echo -e "${YELLOW}[+] Mengunduh biner resmi Docker Compose v2 dari GitHub...${NC}"
+    ARCH=$(uname -m)
+    case "$ARCH" in
+      x86_64)        COMPOSE_ARCH="x86_64" ;;
+      aarch64|arm64) COMPOSE_ARCH="aarch64" ;;
+      armv7l)        COMPOSE_ARCH="armv7" ;;
+      *)             COMPOSE_ARCH="x86_64" ;;
+    esac
+
+    # Create standard docker CLI plugin directories
+    mkdir -p /usr/local/lib/docker/cli-plugins /usr/lib/docker/cli-plugins
+
+    COMPOSE_URL="https://github.com/docker/compose/releases/latest/download/docker-compose-linux-${COMPOSE_ARCH}"
+    curl -sSL "$COMPOSE_URL" -o /usr/local/lib/docker/cli-plugins/docker-compose
+    chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+    # Create symlinks for universal CLI support
+    ln -sf /usr/local/lib/docker/cli-plugins/docker-compose /usr/lib/docker/cli-plugins/docker-compose 2>/dev/null || true
+    ln -sf /usr/local/lib/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose 2>/dev/null || true
+  fi
+fi
+
+if ! docker compose version &>/dev/null; then
+  echo -e "${RED}[-] Error: Gagal memasang Docker Compose v2. Silakan periksa koneksi internet VPS.${NC}"
+  exit 1
 fi
 
 echo -e "${GREEN}[+] Docker: $(docker --version | awk '{print $3}' | tr -d ',') | Compose: $(docker compose version --short)${NC}"
