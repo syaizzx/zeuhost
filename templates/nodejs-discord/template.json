@@ -1,0 +1,35 @@
+{
+  "$schema": "https://zeuhost.org/schemas/template-v1.json",
+  "name": "Discord.js Bot Starter",
+  "slug": "discord-js-starter",
+  "version": "1.0.0",
+  "runtime": "NODEJS",
+  "description": "Official starter template for Discord bots using Discord.js v14.",
+  "dockerImage": "zeuhost/template-discord-js:1.0.0",
+  "resourceDefaults": {
+    "memoryMb": 256,
+    "cpuCores": 0.5,
+    "storageMb": 512
+  },
+  "envVariables": [
+    {
+      "key": "DISCORD_BOT_TOKEN",
+      "label": "Discord Bot Token",
+      "description": "Bot token generated in the Discord Developer Portal",
+      "type": "secret",
+      "required": true
+    },
+    {
+      "key": "COMMAND_PREFIX",
+      "label": "Command Prefix",
+      "description": "Prefix for text commands (e.g. ! or ?)",
+      "type": "string",
+      "required": false,
+      "default": "!"
+    }
+  ],
+  "healthCheck": {
+    "type": "process",
+    "timeoutSeconds": 30
+  }
+}

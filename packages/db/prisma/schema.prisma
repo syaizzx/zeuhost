@@ -1,0 +1,332 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  OWNER
+  STAFF
+  CUSTOMER
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+}
+
+enum RegistrationMode {
+  OPEN
+  INVITE_ONLY
+  CLOSED
+}
+
+enum InstanceStatus {
+  STOPPED
+  RUNNING
+  RESTARTING
+  FAILED
+  TERMINATED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  GRACE_PERIOD
+  SUSPENDED
+  EXPIRED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  MANUAL_TRANSFER
+  STRIPE
+  CRYPTO
+  EXTERNAL
+}
+
+enum RuntimeType {
+  NODEJS
+  PYTHON
+}
+
+// User & Authentication Models (Better Auth Compatible)
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  emailVerified Boolean        @default(false)
+  name          String?
+  image         String?
+  role          Role           @default(CUSTOMER)
+  status        UserStatus     @default(ACTIVE)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  instances     BotInstance[]
+  subscriptions Subscription[]
+  payments      PaymentRecord[]
+  invitations   Invitation[]   @relation("InvitedBy")
+  auditLogs     AuditLog[]
+
+  @@index([email])
+  @@index([role, status])
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  providerId            String
+  accountId             String
+  accessToken           String?   @db.Text
+  refreshToken          String?   @db.Text
+  accessTokenExpiresAt DateTime?
+  refreshTokenExpiresAt DateTime?
+  idToken               String?   @db.Text
+  scope                 String?
+  password              String?   @db.Text
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([identifier, value])
+  @@index([identifier])
+}
+
+model Invitation {
+  id         String    @id @default(cuid())
+  email      String    @unique
+  token      String    @unique
+  role       Role      @default(CUSTOMER)
+  inviterId  String
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  inviter    User      @relation("InvitedBy", fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+}
+
+// System & White-Label Configuration
+model SystemSetting {
+  id                String           @id @default("system_config")
+  registrationMode  RegistrationMode @default(OPEN)
+  allowGoogleAuth   Boolean          @default(true)
+  allowGithubAuth   Boolean          @default(false)
+  defaultPlanId     String?
+  smtpHost          String?
+  smtpPort          Int?
+  smtpUser          String?
+  smtpPassword      String?          @db.Text // Encrypted
+  smtpFromEmail     String?
+  smtpFromName      String?
+  updatedAt         DateTime         @updatedAt
+}
+
+model BrandingSetting {
+  id                 String   @id @default("branding_config")
+  productName        String   @default("ZeuHost")
+  companyName        String   @default("Zeuzz")
+  logoUrl            String?
+  faviconUrl         String?
+  primaryColor       String   @default("#0f172a")
+  accentColor        String   @default("#2563eb")
+  supportEmail       String?
+  footerText         String?  @default("Powered by ZeuHost open-source bot platform.")
+  documentationUrl   String?
+  termsUrl           String?
+  privacyUrl         String?
+  customDomain       String?  @unique
+  landingHeadline    String   @default("Host Your Bots with Zero Hassle")
+  landingSubheadline String   @default("Reliable, dedicated bot hosting powered by your independent operator.")
+  updatedAt          DateTime @updatedAt
+}
+
+// Bot Templates & Runtime Registry
+model BotTemplate {
+  id          String               @id @default(cuid())
+  slug        String               @unique
+  name        String
+  description String               @db.Text
+  category    String               @default("general")
+  runtime     RuntimeType
+  iconUrl     String?
+  isOfficial  Boolean              @default(true)
+  isActive    Boolean              @default(true)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  versions    BotTemplateVersion[]
+
+  @@index([slug, isActive])
+}
+
+model BotTemplateVersion {
+  id                    String        @id @default(cuid())
+  templateId            String
+  versionTag            String        // e.g. "1.0.0"
+  dockerImage           String        // e.g. "zeuhost/template-discord-js:1.0.0"
+  requiredEnvSchema     Json          // Declarative field definitions
+  defaultResourceLimits Json          // Memory, CPU, disk defaults
+  startupCommand        String?
+  isActive              Boolean       @default(true)
+  createdAt             DateTime      @default(now())
+
+  template              BotTemplate   @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  instances             BotInstance[]
+
+  @@unique([templateId, versionTag])
+  @@index([templateId])
+}
+
+// Bot Instances
+model BotInstance {
+  id                 String             @id @default(cuid())
+  customerId         String
+  templateVersionId  String
+  name               String
+  containerId        String?            @unique
+  status             InstanceStatus     @default(STOPPED)
+  encryptedEnvVars   String             @db.Text // AES-256-GCM encrypted payload
+  cpuLimitCores      Float              @default(0.5)
+  memoryLimitMb      Int                @default(256)
+  storageLimitMb     Int                @default(512)
+  lastStartedAt      DateTime?
+  lastStoppedAt      DateTime?
+  exitCode           Int?
+  failureReason      String?            @db.Text
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  customer           User               @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  templateVersion    BotTemplateVersion @relation(fields: [templateVersionId], references: [id], onDelete: Restrict)
+
+  @@index([customerId])
+  @@index([status])
+}
+
+// Plans & Billing
+model Plan {
+  id                     String         @id @default(cuid())
+  slug                   String         @unique
+  name                   String
+  description            String         @db.Text
+  priceMonthly           Int            @default(0) // In lowest currency unit (e.g. cents)
+  currency               String         @default("USD")
+  maxInstances           Int            @default(1)
+  maxMemoryPerInstanceMb Int            @default(256)
+  maxCpuPerInstance      Float          @default(0.5)
+  maxStorageMb           Int            @default(512)
+  isActive               Boolean        @default(true)
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+
+  subscriptions          Subscription[]
+
+  @@index([slug, isActive])
+}
+
+model Subscription {
+  id                String             @id @default(cuid())
+  customerId        String
+  planId            String
+  status            SubscriptionStatus @default(ACTIVE)
+  startedAt         DateTime           @default(now())
+  currentPeriodEnd  DateTime
+  gracePeriodEnd    DateTime?
+  cancelAtPeriodEnd Boolean            @default(false)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  customer          User               @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  plan              Plan               @relation(fields: [planId], references: [id], onDelete: Restrict)
+  payments          PaymentRecord[]
+
+  @@index([customerId])
+  @@index([status])
+}
+
+model PaymentRecord {
+  id                 String        @id @default(cuid())
+  subscriptionId     String?
+  customerId         String
+  amount             Int
+  currency           String        @default("USD")
+  method             PaymentMethod @default(MANUAL_TRANSFER)
+  providerReference  String?
+  status             PaymentStatus @default(PENDING)
+  proofDocumentUrl   String?       @db.Text
+  operatorNotes      String?       @db.Text
+  confirmedByStaffId String?
+  confirmedAt        DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  customer           User          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  subscription       Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([customerId])
+  @@index([status])
+}
+
+// Audit & Compliance
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actorRole  Role?
+  action     String   // e.g. "INSTANCE_CREATE", "PLAN_MODIFY", "USER_SUSPEND"
+  entityType String   // e.g. "BotInstance", "Plan", "User"
+  entityId   String?
+  ipAddress  String?
+  userAgent  String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId])
+  @@index([action])
+  @@index([createdAt])
+}

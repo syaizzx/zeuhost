@@ -1,0 +1,32 @@
+FROM node:20-alpine AS base
+RUN npm install -g bun
+
+FROM base AS builder
+WORKDIR /app
+COPY package.json pnpm-workspace.yaml bun.lock* ./
+COPY apps/web/package.json ./apps/web/
+COPY packages/db/package.json ./packages/db/
+COPY packages/shared/package.json ./packages/shared/
+
+RUN cd apps/web && bun install
+COPY packages/shared ./packages/shared
+RUN cd packages/shared && bun install && bun run build
+
+COPY packages/db ./packages/db
+RUN cd packages/db && bun install && bun run generate
+
+COPY apps/web ./apps/web
+RUN cd apps/web && bun run build
+
+FROM base AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=3000
+
+COPY --from=builder /app/apps/web/public ./apps/web/public
+COPY --from=builder /app/apps/web/.next ./apps/web/.next
+COPY --from=builder /app/apps/web/package.json ./apps/web/package.json
+COPY --from=builder /app/apps/web/node_modules ./apps/web/node_modules
+
+EXPOSE 3000
+CMD ["bun", "run", "--cwd", "apps/web", "start"]

@@ -1,0 +1,28 @@
+{
+  "name": "zeuhost-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ZeuHost open-source self-hosted white-label bot hosting platform",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm --prefix apps/web run dev",
+    "build:deps": "npm --prefix packages/shared run build && npm --prefix packages/db run generate && npm --prefix packages/runtime-manager run build",
+    "build": "npm run build:deps && npm --prefix apps/web run build",
+    "start": "npm --prefix apps/web run start",
+    "test": "./scripts/test-api.sh",
+    "db:generate": "npm --prefix packages/db run generate",
+    "db:seed": "npm --prefix packages/db run seed",
+    "vps:preflight": "./scripts/preflight.sh",
+    "vps:setup": "./scripts/setup.sh",
+    "vps:owner": "./scripts/create-owner.sh",
+    "vps:backup": "./scripts/backup.sh"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "author": "Zeuzz",
+  "license": "Apache-2.0"
+}

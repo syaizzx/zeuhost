@@ -1,0 +1,27 @@
+{
+  "$schema": "https://zeuhost.org/schemas/template-v1.json",
+  "name": "Python Telegram Bot Starter",
+  "slug": "python-telegram-starter",
+  "version": "1.0.0",
+  "runtime": "PYTHON",
+  "description": "Official starter template for Telegram bots using python-telegram-bot v21.",
+  "dockerImage": "zeuhost/template-telegram-py:1.0.0",
+  "resourceDefaults": {
+    "memoryMb": 256,
+    "cpuCores": 0.5,
+    "storageMb": 512
+  },
+  "envVariables": [
+    {
+      "key": "TELEGRAM_BOT_TOKEN",
+      "label": "Telegram Bot Token",
+      "description": "API token provided by @BotFather on Telegram",
+      "type": "secret",
+      "required": true
+    }
+  ],
+  "healthCheck": {
+    "type": "process",
+    "timeoutSeconds": 30
+  }
+}

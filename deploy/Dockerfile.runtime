@@ -1,0 +1,16 @@
+FROM node:20-alpine AS base
+RUN npm install -g bun
+
+WORKDIR /app
+COPY package.json pnpm-workspace.yaml bun.lock* ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/runtime-manager/package.json ./packages/runtime-manager/
+
+COPY packages/shared ./packages/shared
+RUN cd packages/shared && bun install && bun run build
+
+COPY packages/runtime-manager ./packages/runtime-manager
+RUN cd packages/runtime-manager && bun install && bun run build
+
+EXPOSE 4001
+CMD ["bun", "run", "--cwd", "packages/runtime-manager", "start"]

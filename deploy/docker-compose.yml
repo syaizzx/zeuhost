@@ -1,0 +1,87 @@
+version: "3.8"
+
+services:
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: zeuhost-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./reverse-proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - zeuhost-public
+    depends_on:
+      - web
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+    container_name: zeuhost-web
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-zeuhost}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-zeuhost}?schema=public
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+      - BETTER_AUTH_URL=${PUBLIC_URL}
+      - RUNTIME_MANAGER_URL=http://runtime-manager:4001
+      - RUNTIME_MANAGER_SECRET=${RUNTIME_MANAGER_HMAC_SECRET}
+      - INSTANCE_SECRET_KEY=${INSTANCE_SECRET_KEY}
+    networks:
+      - zeuhost-public
+      - zeuhost-internal
+      - zeuhost-control
+    depends_on:
+      - postgres
+      - runtime-manager
+
+  runtime-manager:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.runtime
+    container_name: zeuhost-runtime-manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - RUNTIME_MANAGER_PORT=4001
+      - RUNTIME_MANAGER_SECRET=${RUNTIME_MANAGER_HMAC_SECRET}
+      - DOCKER_SOCKET_PATH=/var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - zeuhost-control
+      - zeuhost-bots
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: zeuhost-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-zeuhost}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-zeuhost}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - zeuhost-internal
+
+networks:
+  zeuhost-public:
+    driver: bridge
+  zeuhost-internal:
+    driver: bridge
+    internal: true
+  zeuhost-control:
+    driver: bridge
+    internal: true
+  zeuhost-bots:
+    driver: bridge
+
+volumes:
+  caddy-data:
+  caddy-config:
+  postgres-data:

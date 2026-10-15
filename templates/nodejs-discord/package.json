@@ -1,0 +1,12 @@
+{
+  "name": "zeuhost-discord-starter",
+  "version": "1.0.0",
+  "description": "ZeuHost Official Discord.js v14 Starter Template",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.16.3"
+  }
+}
