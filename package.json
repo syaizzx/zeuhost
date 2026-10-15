@@ -23,6 +23,10 @@
   "engines": {
     "node": ">=20.0.0"
   },
-  "author": "Zeuzz",
+  "author": "syaizzx",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/syaizzx/zeuhost.git"
+  },
   "license": "Apache-2.0"
 }

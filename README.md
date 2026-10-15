@@ -11,7 +11,7 @@ ZeuHost allows operators to deploy a complete bot hosting infrastructure on thei
 Di server VPS baru Anda (Ubuntu 22.04 LTS / Debian 12), cukup jalankan satu baris perintah berikut sebagai root:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Zeuzz/zeuhost/main/install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/syaizzx/zeuhost/main/install.sh | sudo bash
 ```
 
 Skrip ini akan secara otomatis:
@@ -104,4 +104,4 @@ make test          # Menjalankan 7 skenario uji API secara mandiri
 ## Lisensi
 
 ZeuHost adalah perangkat lunak sumber terbuka (open-source) berlisensi [Apache License 2.0](./LICENSE).
-Dibuat oleh **Zeuzz**.
+Dibuat oleh **syaizzx**.

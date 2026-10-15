@@ -503,7 +503,7 @@ export default function HomePage() {
             <a href="#faq" className="hover:text-foreground transition-colors">
               FAQ
             </a>
-            <span>Karya Zeuzz</span>
+            <span>Karya syaizzx</span>
           </div>
         </div>
       </footer>

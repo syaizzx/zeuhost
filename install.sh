@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
 #  ZeuHost Automatic 1-Command VPS Installer
-#  Created by Zeuzz - https://github.com/Zeuzz/zeuhost
+#  Created by syaizzx - https://github.com/syaizzx/zeuhost
 # =============================================================================
 
 set -euo pipefail
@@ -114,7 +114,7 @@ echo -e "${GREEN}[+] Docker: $(docker --version | awk '{print $3}' | tr -d ',') 
 # 5. Clone Repository if not present
 if [ ! -f "$INSTALL_DIR/deploy/docker-compose.yml" ]; then
   echo -e "\n${BLUE}[3/6] Mengunduh source code ZeuHost dari GitHub...${NC}"
-  git clone --depth 1 https://github.com/Zeuzz/zeuhost.git "$INSTALL_DIR"
+  git clone --depth 1 https://github.com/syaizzx/zeuhost.git "$INSTALL_DIR"
 fi
 
 cd "$INSTALL_DIR"

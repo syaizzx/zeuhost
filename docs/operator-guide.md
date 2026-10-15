@@ -23,7 +23,7 @@ Sebelum menjalankan instalasi, pastikan VPS Anda memenuhi kriteria minimum berik
 Pada server VPS yang masih bersih (fresh install), cukup jalankan satu baris perintah berikut sebagai root:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Zeuzz/zeuhost/main/install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/syaizzx/zeuhost/main/install.sh | sudo bash
 ```
 
 ### Apa yang Dilakukan oleh Skrip Installer Otomatis:
@@ -43,7 +43,7 @@ curl -sSL https://raw.githubusercontent.com/Zeuzz/zeuhost/main/install.sh | sudo
 Jika Anda ingin mengclone repositori secara manual:
 
 ```bash
-git clone https://github.com/Zeuzz/zeuhost.git /opt/zeuhost
+git clone https://github.com/syaizzx/zeuhost.git /opt/zeuhost
 cd /opt/zeuhost
 sudo ./install.sh
 ```

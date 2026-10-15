@@ -972,7 +972,7 @@ Before running the installer, the host must satisfy:
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/Zeuzz/zeuhost.git /opt/zeuhost
+git clone https://github.com/syaizzx/zeuhost.git /opt/zeuhost
 cd /opt/zeuhost
 
 # 2. Run interactive preflight and setup script
