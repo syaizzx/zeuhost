@@ -1,12 +1,30 @@
 import { prisma } from "@zeuhost/db";
 
-const DEFAULT_PLANS = [
+export interface PlanItem {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  category: "BOT_HOSTING" | "WEB_NODEJS" | "PYTHON_APP";
+  hasFileManager: boolean;
+  priceMonthly: number;
+  currency: string;
+  maxInstances: number;
+  maxMemoryPerInstanceMb: number;
+  maxCpuPerInstance: number;
+  maxStorageMb: number;
+  isActive: boolean;
+}
+
+const DEFAULT_PLANS: PlanItem[] = [
   {
-    id: "plan-starter",
-    slug: "plan-starter",
-    name: "Starter Trial",
-    description: "Uji coba performa dan stabilitas bot gratis tanpa kartu kredit.",
-    priceMonthly: 0,
+    id: "plan-bot-starter",
+    slug: "plan-bot-starter",
+    name: "Bot Jadibot Starter",
+    description: "Hosting bot WhatsApp/Discord otomatis tanpa koding. Kode bot tertanam paten, kontrol via Live Terminal & Pairing Code.",
+    category: "BOT_HOSTING",
+    hasFileManager: false,
+    priceMonthly: 15000,
     currency: "IDR",
     maxInstances: 1,
     maxMemoryPerInstanceMb: 256,
@@ -15,10 +33,12 @@ const DEFAULT_PLANS = [
     isActive: true,
   },
   {
-    id: "plan-pro",
-    slug: "plan-pro",
-    name: "Pro Jadibot",
-    description: "Paling pas untuk toko online, bot grup aktif, dan server komunitas.",
+    id: "plan-bot-pro",
+    slug: "plan-bot-pro",
+    name: "Pro Jadibot WhatsApp & Discord",
+    description: "Dukungan multi-bot aktif 24 jam dengan auto-reconnect, QR scanner, & 8-digit pairing code.",
+    category: "BOT_HOSTING",
+    hasFileManager: false,
     priceMonthly: 25000,
     currency: "IDR",
     maxInstances: 3,
@@ -28,30 +48,64 @@ const DEFAULT_PLANS = [
     isActive: true,
   },
   {
-    id: "plan-reseller",
-    slug: "plan-reseller",
-    name: "Operator Reseller",
-    description: "Untuk reseller atau komunitas besar yang ingin mengelola banyak bot.",
-    priceMonthly: 75000,
+    id: "plan-web-nodejs",
+    slug: "plan-web-nodejs",
+    name: "Node.js & Web PaaS Hosting",
+    description: "Jalankan backend Express, Next.js, API, atau bot kustom dengan In-Browser File Manager, Monaco Editor, & custom port.",
+    category: "WEB_NODEJS",
+    hasFileManager: true,
+    priceMonthly: 45000,
     currency: "IDR",
-    maxInstances: 10,
-    maxMemoryPerInstanceMb: 2048,
+    maxInstances: 5,
+    maxMemoryPerInstanceMb: 1024,
     maxCpuPerInstance: 1.0,
-    maxStorageMb: 4096,
+    maxStorageMb: 2048,
+    isActive: true,
+  },
+  {
+    id: "plan-python-app",
+    slug: "plan-python-app",
+    name: "Python Cloud & Custom App",
+    description: "Cloud hosting Python (FastAPI, Flask, Pyrogram) dengan akses Web File Manager langsung dan Live Terminal.",
+    category: "PYTHON_APP",
+    hasFileManager: true,
+    priceMonthly: 50000,
+    currency: "IDR",
+    maxInstances: 5,
+    maxMemoryPerInstanceMb: 1024,
+    maxCpuPerInstance: 1.0,
+    maxStorageMb: 2048,
     isActive: true,
   },
 ];
 
 export class PlanService {
-  async getActivePlans() {
+  async getActivePlans(): Promise<PlanItem[]> {
     try {
       const plans = await prisma.plan.findMany({
         where: { isActive: true },
         orderBy: { priceMonthly: "asc" },
       });
-      return plans.length > 0 ? plans : DEFAULT_PLANS;
+      return plans.length > 0 ? (plans as unknown as PlanItem[]) : DEFAULT_PLANS;
     } catch {
       return DEFAULT_PLANS;
+    }
+  }
+
+  async getCustomerActiveSubscription(customerId: string) {
+    try {
+      const subscription = await prisma.subscription.findFirst({
+        where: {
+          customerId,
+          status: { in: ["ACTIVE", "GRACE_PERIOD"] },
+        },
+        include: { plan: true },
+        orderBy: { createdAt: "desc" },
+      });
+
+      return subscription;
+    } catch {
+      return null;
     }
   }
 
@@ -60,6 +114,8 @@ export class PlanService {
     reason?: string;
     maxMemoryMb: number;
     maxCpuCores: number;
+    hasFileManager: boolean;
+    category: string;
   }> {
     try {
       const subscription = await prisma.subscription.findFirst({
@@ -71,9 +127,23 @@ export class PlanService {
         orderBy: { createdAt: "desc" },
       });
 
-      const maxInstances = subscription?.plan?.maxInstances ?? 1;
-      const maxMemoryMb = subscription?.plan?.maxMemoryPerInstanceMb ?? 256;
-      const maxCpuCores = subscription?.plan?.maxCpuPerInstance ?? 0.5;
+      if (!subscription) {
+        return {
+          allowed: false,
+          reason: "Anda belum memiliki paket hosting aktif. Silakan pilih dan aktifkan paket terlebih dahulu.",
+          maxMemoryMb: 0,
+          maxCpuCores: 0,
+          hasFileManager: false,
+          category: "NONE",
+        };
+      }
+
+      const plan = subscription.plan;
+      const maxInstances = plan?.maxInstances ?? 1;
+      const maxMemoryMb = plan?.maxMemoryPerInstanceMb ?? 256;
+      const maxCpuCores = plan?.maxCpuPerInstance ?? 0.5;
+      const hasFileManager = (plan as unknown as { hasFileManager?: boolean })?.hasFileManager ?? false;
+      const category = (plan as unknown as { category?: string })?.category ?? "BOT_HOSTING";
 
       const activeInstanceCount = await prisma.botInstance.count({
         where: {
@@ -85,9 +155,11 @@ export class PlanService {
       if (activeInstanceCount >= maxInstances) {
         return {
           allowed: false,
-          reason: `Batas kuota tercapai (${activeInstanceCount}/${maxInstances} bot). Silakan upgrade paket untuk menambah bot.`,
+          reason: `Batas kuota instance tercapai (${activeInstanceCount}/${maxInstances}). Silakan upgrade paket untuk menambah instance.`,
           maxMemoryMb,
           maxCpuCores,
+          hasFileManager,
+          category,
         };
       }
 
@@ -95,12 +167,17 @@ export class PlanService {
         allowed: true,
         maxMemoryMb,
         maxCpuCores,
+        hasFileManager,
+        category,
       };
     } catch {
       return {
-        allowed: true,
-        maxMemoryMb: 256,
-        maxCpuCores: 0.5,
+        allowed: false,
+        reason: "Gagal memverifikasi status paket langganan.",
+        maxMemoryMb: 0,
+        maxCpuCores: 0,
+        hasFileManager: false,
+        category: "NONE",
       };
     }
   }

@@ -150,6 +150,54 @@ else
   PASSWORD="$ADMIN_PASSWORD"
 fi
 
+
+# Payment Provider Selection
+echo -e "\n${BOLD}Pilih Metode Pembayaran / Payment Gateway:${NC}"
+echo -e "  1) ${GREEN}Manual Bank Transfer (BCA, Mandiri, BRI, QRIS Kasir) [Default - Aman Tanpa API Key]${NC}"
+echo -e "  2) Tripay Gateway (QRIS Otomatis, Virtual Account, Alfamart/Indomaret)"
+echo -e "  3) Midtrans Payment (Snap API & QRIS GoPay)"
+read -rp "Pilihan Anda [1]: " PAYMENT_CHOICE
+PAYMENT_CHOICE="${PAYMENT_CHOICE:-1}"
+
+PAYMENT_PROVIDER="MANUAL"
+MANUAL_BANK="BCA"
+MANUAL_NO="8420198888"
+MANUAL_NAME="ZeuHost Operator"
+TRIPAY_KEY=""
+TRIPAY_PRIV=""
+TRIPAY_CODE=""
+TRIPAY_PROD="false"
+MIDTRANS_SERVER=""
+MIDTRANS_CLIENT=""
+MIDTRANS_PROD="false"
+
+case "$PAYMENT_CHOICE" in
+  2)
+    PAYMENT_PROVIDER="TRIPAY"
+    read -rp "Masukkan Tripay API Key: " TRIPAY_KEY
+    read -rp "Masukkan Tripay Private Key: " TRIPAY_PRIV
+    read -rp "Masukkan Tripay Merchant Code: " TRIPAY_CODE
+    read -rp "Gunakan Mode Production? (y/N): " IS_PROD
+    if [[ "$IS_PROD" =~ ^[Yy]$ ]]; then TRIPAY_PROD="true"; fi
+    ;;
+  3)
+    PAYMENT_PROVIDER="MIDTRANS"
+    read -rp "Masukkan Midtrans Server Key: " MIDTRANS_SERVER
+    read -rp "Masukkan Midtrans Client Key: " MIDTRANS_CLIENT
+    read -rp "Gunakan Mode Production? (y/N): " IS_PROD
+    if [[ "$IS_PROD" =~ ^[Yy]$ ]]; then MIDTRANS_PROD="true"; fi
+    ;;
+  *)
+    PAYMENT_PROVIDER="MANUAL"
+    read -rp "Nama Bank / Metode Pembayaran [BCA]: " INPUT_BANK
+    MANUAL_BANK="${INPUT_BANK:-BCA}"
+    read -rp "Nomor Rekening / Akun Pembayaran [8420198888]: " INPUT_NO
+    MANUAL_NO="${INPUT_NO:-8420198888}"
+    read -rp "Atas Nama (A/N) [ZeuHost Operator]: " INPUT_NAME
+    MANUAL_NAME="${INPUT_NAME:-ZeuHost Operator}"
+    ;;
+esac
+
 # Determine Protocol
 if [ "$DOMAIN" = "$SERVER_IP" ] || [ "$DOMAIN" = "localhost" ] || [ "$DOMAIN" = "127.0.0.1" ]; then
   PUBLIC_URL="http://${DOMAIN}"
@@ -191,6 +239,18 @@ sed -i "s|CHANGE_ME_HMAC_SECRET_FOR_CONTROL_CHANNEL|${HMAC_SECRET}|g" "$ENV_FILE
 sed -i "s|RUNTIME_MANAGER_HMAC_SECRET=.*|RUNTIME_MANAGER_HMAC_SECRET=${HMAC_SECRET}|g" "$ENV_FILE"
 sed -i "s|CHANGE_ME_64_HEX_CHARACTERS_FOR_AES_256_GCM_ENCRYPTION|${ENCRYPT_KEY}|g" "$ENV_FILE"
 sed -i "s|INSTANCE_SECRET_KEY=.*|INSTANCE_SECRET_KEY=${ENCRYPT_KEY}|g" "$ENV_FILE"
+sed -i "s|PAYMENT_PROVIDER=.*|PAYMENT_PROVIDER=${PAYMENT_PROVIDER}|g" "$ENV_FILE"
+sed -i "s|MANUAL_BANK_NAME=.*|MANUAL_BANK_NAME=${MANUAL_BANK}|g" "$ENV_FILE"
+sed -i "s|MANUAL_ACCOUNT_NUMBER=.*|MANUAL_ACCOUNT_NUMBER=${MANUAL_NO}|g" "$ENV_FILE"
+sed -i "s|MANUAL_ACCOUNT_NAME=.*|MANUAL_ACCOUNT_NAME=\"${MANUAL_NAME}\"|g" "$ENV_FILE"
+sed -i "s|TRIPAY_API_KEY=.*|TRIPAY_API_KEY=${TRIPAY_KEY}|g" "$ENV_FILE"
+sed -i "s|TRIPAY_PRIVATE_KEY=.*|TRIPAY_PRIVATE_KEY=${TRIPAY_PRIV}|g" "$ENV_FILE"
+sed -i "s|TRIPAY_MERCHANT_CODE=.*|TRIPAY_MERCHANT_CODE=${TRIPAY_CODE}|g" "$ENV_FILE"
+sed -i "s|TRIPAY_IS_PRODUCTION=.*|TRIPAY_IS_PRODUCTION=${TRIPAY_PROD}|g" "$ENV_FILE"
+sed -i "s|MIDTRANS_SERVER_KEY=.*|MIDTRANS_SERVER_KEY=${MIDTRANS_SERVER}|g" "$ENV_FILE"
+sed -i "s|MIDTRANS_CLIENT_KEY=.*|MIDTRANS_CLIENT_KEY=${MIDTRANS_CLIENT}|g" "$ENV_FILE"
+sed -i "s|MIDTRANS_IS_PRODUCTION=.*|MIDTRANS_IS_PRODUCTION=${MIDTRANS_PROD}|g" "$ENV_FILE"
+sed -i "s|CRON_SECRET=.*|CRON_SECRET=$(openssl rand -hex 16)|g" "$ENV_FILE"
 
 # Configure Firewall
 if command -v ufw &>/dev/null && ufw status | grep -q "Status: active"; then
@@ -249,6 +309,7 @@ echo -e "  ${BOLD}Panel Pelanggan:${NC}   ${PUBLIC_URL}/dashboard"
 echo -e "  ${BOLD}Email Admin:${NC}       ${EMAIL}"
 echo -e "  ${BOLD}Password Admin:${NC}    ${PASSWORD}"
 echo -e "  ${BOLD}Lokasi File:${NC}       ${INSTALL_DIR}"
+echo -e "  ${BOLD}Metode Pembayaran:${NC} ${PAYMENT_PROVIDER}"
 echo -e "${GREEN}================================================================${NC}"
 echo -e "${YELLOW}Perintah Berguna:${NC}"
 echo -e "  - Lihat Log:         cd ${INSTALL_DIR} && make docker-logs"

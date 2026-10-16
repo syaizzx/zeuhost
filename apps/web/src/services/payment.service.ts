@@ -1,4 +1,6 @@
 import { prisma, PaymentMethod } from "@zeuhost/db";
+import { getPaymentDriver, getActivePaymentProvider, TransactionResult } from "./payment-gateway";
+import { runtimeClient } from "./runtime-client";
 
 export interface SubmitPaymentInput {
   planId: string;
@@ -31,151 +33,261 @@ export class PaymentService {
       return await prisma.paymentRecord.findMany({
         where: { status: "PENDING" },
         include: {
-          customer: {
-            select: { id: true, name: true, email: true },
-          },
-          subscription: {
-            include: { plan: true },
-          },
+          customer: { select: { id: true, name: true, email: true } },
+          subscription: { include: { plan: true } },
         },
-        orderBy: { createdAt: "asc" },
+        orderBy: { createdAt: "desc" },
       });
     } catch {
       return [];
     }
   }
 
-  async createPaymentSubmission(customerId: string, input: SubmitPaymentInput) {
-    try {
-      const plan = await prisma.plan.findUnique({
-        where: { id: input.planId },
-      });
-
-      let subscriptionId: string | undefined = undefined;
-
-      if (plan) {
-        let subscription = await prisma.subscription.findFirst({
-          where: { customerId, planId: input.planId },
-        });
-
-        if (!subscription) {
-          const periodEnd = new Date();
-          periodEnd.setDate(periodEnd.getDate() + 30);
-
-          subscription = await prisma.subscription.create({
-            data: {
-              customerId,
-              planId: input.planId,
-              status: "PAST_DUE",
-              currentPeriodEnd: periodEnd,
-            },
-          });
-        }
-        subscriptionId = subscription.id;
-      }
-
-      return await prisma.paymentRecord.create({
-        data: {
-          customerId,
-          subscriptionId,
-          amount: input.amount,
-          currency: input.currency || "IDR",
-          method: (input.method as PaymentMethod) || "MANUAL_TRANSFER",
-          providerReference: input.providerReference,
-          proofDocumentUrl: input.proofDocumentUrl,
-          status: "PENDING",
-        },
-      });
-    } catch {
-      return {
-        id: `pay-${Date.now()}`,
-        customerId,
-        amount: input.amount,
-        currency: input.currency || "IDR",
-        method: input.method || "MANUAL_TRANSFER",
-        status: "PENDING",
-        createdAt: new Date(),
-      };
-    }
+  async getPaymentConfig() {
+    const provider = getActivePaymentProvider();
+    return {
+      provider,
+      manual: {
+        bankName: process.env.MANUAL_BANK_NAME || "BCA",
+        accountNumber: process.env.MANUAL_ACCOUNT_NUMBER || "8420198888",
+        accountName: process.env.MANUAL_ACCOUNT_NAME || "ZeuHost Operator",
+      },
+    };
   }
 
-  async confirmPayment(staffId: string, paymentId: string, operatorNotes?: string) {
-    try {
-      const payment = await prisma.paymentRecord.findUnique({
-        where: { id: paymentId },
-        include: { subscription: true },
-      });
+  async initiateCheckout(customerId: string, planId: string): Promise<TransactionResult & { paymentRecordId?: string }> {
+    const user = await prisma.user.findUnique({
+      where: { id: customerId },
+    });
+    if (!user) throw new Error("Customer not found");
 
-      if (!payment) {
-        return {
-          id: paymentId,
-          status: "CONFIRMED",
-          confirmedByStaffId: staffId,
-          confirmedAt: new Date(),
-          operatorNotes: operatorNotes || "Confirmed by operator",
-        };
-      }
+    const plan = await prisma.plan.findUnique({
+      where: { id: planId },
+    });
+    if (!plan) throw new Error("Plan not found");
 
-      if (payment.status === "CONFIRMED") {
-        return payment;
-      }
+    const driver = getPaymentDriver();
+    const result = await driver.createTransaction({
+      customerId: user.id,
+      customerEmail: user.email,
+      customerName: user.name,
+      planId: plan.id,
+      planName: plan.name,
+      amount: plan.priceMonthly,
+      currency: plan.currency,
+    });
 
-      const updatedPayment = await prisma.paymentRecord.update({
-        where: { id: paymentId },
+    // Ensure subscription record exists
+    let subscription = await prisma.subscription.findFirst({
+      where: { customerId, planId },
+    });
+
+    if (!subscription) {
+      const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      subscription = await prisma.subscription.create({
         data: {
-          status: "CONFIRMED",
-          confirmedByStaffId: staffId,
-          confirmedAt: new Date(),
-          operatorNotes,
+          customerId,
+          planId,
+          status: "PAST_DUE",
+          currentPeriodEnd: periodEnd,
         },
       });
+    }
 
-      if (payment.subscriptionId) {
-        const now = new Date();
-        const newPeriodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    // Create pending payment record
+    const record = await prisma.paymentRecord.create({
+      data: {
+        customerId,
+        subscriptionId: subscription.id,
+        amount: plan.priceMonthly,
+        currency: plan.currency,
+        method: result.method,
+        providerReference: result.reference,
+        status: "PENDING",
+      },
+    });
 
-        await prisma.subscription.update({
-          where: { id: payment.subscriptionId },
+    return {
+      ...result,
+      paymentRecordId: record.id,
+    };
+  }
+
+  async createPaymentSubmission(customerId: string, input: SubmitPaymentInput) {
+    const plan = await prisma.plan.findUnique({
+      where: { id: input.planId },
+    });
+
+    let subscriptionId: string | undefined = undefined;
+
+    if (plan) {
+      let subscription = await prisma.subscription.findFirst({
+        where: { customerId, planId: input.planId },
+      });
+
+      if (!subscription) {
+        const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        subscription = await prisma.subscription.create({
           data: {
-            status: "ACTIVE",
-            currentPeriodEnd: newPeriodEnd,
-            gracePeriodEnd: null,
+            customerId,
+            planId: input.planId,
+            status: "PAST_DUE",
+            currentPeriodEnd: periodEnd,
           },
         });
       }
+      subscriptionId = subscription.id;
+    }
 
-      return updatedPayment;
-    } catch {
-      return {
-        id: paymentId,
+    return await prisma.paymentRecord.create({
+      data: {
+        customerId,
+        subscriptionId,
+        amount: input.amount,
+        currency: input.currency || "IDR",
+        method: (input.method as PaymentMethod) || "MANUAL_TRANSFER",
+        providerReference: input.providerReference,
+        proofDocumentUrl: input.proofDocumentUrl,
+        status: "PENDING",
+      },
+    });
+  }
+
+  async handlePaymentSuccess(providerReference: string, metadata?: Record<string, unknown>) {
+    const payment = await prisma.paymentRecord.findFirst({
+      where: { providerReference },
+      include: { subscription: true, customer: true },
+    });
+
+    if (!payment) {
+      console.warn(`[PaymentService] No payment record found for reference: ${providerReference}`);
+      return null;
+    }
+
+    // Idempotency: skip if already confirmed
+    if (payment.status === "CONFIRMED") {
+      return payment;
+    }
+
+    const updatedPayment = await prisma.paymentRecord.update({
+      where: { id: payment.id },
+      data: {
+        status: "CONFIRMED",
+        confirmedAt: new Date(),
+        operatorNotes: metadata ? JSON.stringify(metadata) : "Confirmed automatically via payment gateway webhook",
+      },
+    });
+
+    // Extend Subscription by 30 days
+    if (payment.subscriptionId) {
+      const now = new Date();
+      const currentEnd = payment.subscription?.currentPeriodEnd || now;
+      const baseDate = currentEnd > now ? currentEnd : now;
+      const newPeriodEnd = new Date(baseDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+      await prisma.subscription.update({
+        where: { id: payment.subscriptionId },
+        data: {
+          status: "ACTIVE",
+          currentPeriodEnd: newPeriodEnd,
+          gracePeriodEnd: null,
+        },
+      });
+
+      // Resume suspended instances for this customer
+      const instances = await prisma.botInstance.findMany({
+        where: { customerId: payment.customerId, status: "STOPPED" },
+      });
+
+      for (const inst of instances) {
+        if (inst.containerId) {
+          try {
+            await runtimeClient.startContainer(inst.containerId);
+            await prisma.botInstance.update({
+              where: { id: inst.id },
+              data: { status: "RUNNING", lastStartedAt: new Date() },
+            });
+          } catch {
+            // Container restart failure non-fatal to webhook
+          }
+        }
+      }
+    }
+
+    return updatedPayment;
+  }
+
+  async confirmPayment(staffId: string, paymentId: string, operatorNotes?: string) {
+    const payment = await prisma.paymentRecord.findUnique({
+      where: { id: paymentId },
+      include: { subscription: true },
+    });
+
+    if (!payment) throw new Error("Payment record not found");
+    if (payment.status === "CONFIRMED") return payment;
+
+    const updatedPayment = await prisma.paymentRecord.update({
+      where: { id: paymentId },
+      data: {
         status: "CONFIRMED",
         confirmedByStaffId: staffId,
         confirmedAt: new Date(),
         operatorNotes: operatorNotes || "Confirmed by operator",
-      };
+      },
+    });
+
+    if (payment.subscriptionId) {
+      const now = new Date();
+      const newPeriodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+      await prisma.subscription.update({
+        where: { id: payment.subscriptionId },
+        data: {
+          status: "ACTIVE",
+          currentPeriodEnd: newPeriodEnd,
+          gracePeriodEnd: null,
+        },
+      });
+
+      // Resume instances
+      const instances = await prisma.botInstance.findMany({
+        where: { customerId: payment.customerId, status: "STOPPED" },
+      });
+
+      for (const inst of instances) {
+        if (inst.containerId) {
+          try {
+            await runtimeClient.startContainer(inst.containerId);
+            await prisma.botInstance.update({
+              where: { id: inst.id },
+              data: { status: "RUNNING", lastStartedAt: new Date() },
+            });
+          } catch {
+            // Ignore if container is already running
+          }
+        }
+      }
     }
+
+    return updatedPayment;
   }
 
   async rejectPayment(staffId: string, paymentId: string, operatorNotes?: string) {
-    try {
-      return await prisma.paymentRecord.update({
-        where: { id: paymentId },
-        data: {
-          status: "FAILED",
-          confirmedByStaffId: staffId,
-          confirmedAt: new Date(),
-          operatorNotes,
-        },
-      });
-    } catch {
-      return {
-        id: paymentId,
+    const payment = await prisma.paymentRecord.findUnique({
+      where: { id: paymentId },
+    });
+
+    if (!payment) throw new Error("Payment record not found");
+
+    return await prisma.paymentRecord.update({
+      where: { id: paymentId },
+      data: {
         status: "FAILED",
         confirmedByStaffId: staffId,
         confirmedAt: new Date(),
         operatorNotes: operatorNotes || "Rejected by operator",
-      };
-    }
+      },
+    });
   }
 }
 
