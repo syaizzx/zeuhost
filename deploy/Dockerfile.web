@@ -16,7 +16,7 @@ COPY packages/db ./packages/db
 RUN cd packages/db && bun install && bun run generate
 
 COPY apps/web ./apps/web
-RUN cd apps/web && bun run build
+RUN mkdir -p apps/web/public && cd apps/web && bun run build
 
 FROM base AS runner
 WORKDIR /app
