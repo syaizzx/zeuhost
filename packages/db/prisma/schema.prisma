@@ -238,9 +238,6 @@ model BotInstance {
   lastStoppedAt      DateTime?
   exitCode           Int?
   failureReason      String?            @db.Text
-  instanceType       String             @default("BOT") // "BOT" | "WEB" | "NODEJS" | "PYTHON"
-  port               Int?
-  customDomain       String?
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
@@ -257,8 +254,6 @@ model Plan {
   slug                   String         @unique
   name                   String
   description            String         @db.Text
-  category               String         @default("BOT_HOSTING") // "BOT_HOSTING" | "WEB_NODEJS" | "PYTHON_APP"
-  hasFileManager         Boolean        @default(false)
   priceMonthly           Int            @default(0) // In lowest currency unit (e.g. cents)
   currency               String         @default("USD")
   maxInstances           Int            @default(1)
