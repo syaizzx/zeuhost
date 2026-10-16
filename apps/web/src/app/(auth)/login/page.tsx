@@ -34,12 +34,7 @@ export default function LoginPage() {
         window.location.href = "/dashboard";
       }, 800);
     } catch {
-      // Offline fallback for testing
-      setSuccess(true);
-      setTimeout(() => {
-        window.location.href = "/dashboard";
-      }, 800);
-    } finally {
+      setErrorMsg("Gagal terhubung ke server. Periksa koneksi internet.");
       setIsLoading(false);
     }
   };
@@ -52,7 +47,7 @@ export default function LoginPage() {
         callbackURL: "/dashboard",
       });
     } catch {
-      window.location.href = "/dashboard";
+      setErrorMsg("Gagal login dengan Google. Coba lagi nanti.");
     } finally {
       setIsLoading(false);
     }

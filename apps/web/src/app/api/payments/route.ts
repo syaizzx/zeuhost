@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { paymentService } from "@/services/payment.service";
+import { requireSession } from "@/lib/session";
 
 const paymentSubmissionSchema = z.object({
   planId: z.string().min(1),
@@ -11,21 +12,23 @@ const paymentSubmissionSchema = z.object({
   proofDocumentUrl: z.string().optional(),
 });
 
-export async function GET(req: NextRequest) {
-  const customerId = req.headers.get("x-customer-id") || "demo-customer-id";
+export async function GET() {
   try {
-    const payments = await paymentService.getCustomerPayments(customerId);
+    const user = await requireSession();
+    const payments = await paymentService.getCustomerPayments(user.id);
     return NextResponse.json({ success: true, data: payments });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to fetch payments";
+    if (message === "UNAUTHORIZED") {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
 
 export async function POST(req: NextRequest) {
-  const customerId = req.headers.get("x-customer-id") || "demo-customer-id";
-
   try {
+    const user = await requireSession();
     const body = await req.json();
     const parseResult = paymentSubmissionSchema.safeParse(body);
 
@@ -36,10 +39,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const payment = await paymentService.createPaymentSubmission(customerId, parseResult.data);
+    const payment = await paymentService.createPaymentSubmission(user.id, parseResult.data);
     return NextResponse.json({ success: true, data: payment }, { status: 201 });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to submit payment";
+    if (message === "UNAUTHORIZED") {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

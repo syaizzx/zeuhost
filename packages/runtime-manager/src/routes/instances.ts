@@ -99,6 +99,61 @@ instancesRouter.get("/:id/logs", async (req: Request, res: Response): Promise<vo
     res.status(500).json({ success: false, containerId, error: message });
   }
 });
+instancesRouter.get("/:id/stream", async (req: Request, res: Response): Promise<void> => {
+  const containerId = req.params.id;
+  const tail = req.query.tail ? parseInt(req.query.tail as string, 10) : 50;
+
+  try {
+    const stream = await dockerSandbox.getLogsStream(containerId, isNaN(tail) ? 50 : tail);
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders?.();
+
+    res.write(`data: ${JSON.stringify({ type: "connected", containerId })}\n\n`);
+
+    stream.on("data", (chunk: Buffer) => {
+      // Docker log frame contains 8-byte header: [stream_type, 0, 0, 0, size1, size2, size3, size4]
+      let text = chunk.toString("utf-8");
+      if (chunk.length > 8 && (chunk[0] === 1 || chunk[0] === 2)) {
+        text = chunk.subarray(8).toString("utf-8");
+      }
+      const lines = text.split("\n");
+      for (const line of lines) {
+        if (line.trim()) {
+          res.write(`data: ${JSON.stringify({ type: "log", line })}\n\n`);
+        }
+      }
+    });
+
+    stream.on("end", () => {
+      res.write(`data: ${JSON.stringify({ type: "end" })}\n\n`);
+      res.end();
+    });
+
+    stream.on("error", (err: Error) => {
+      res.write(`data: ${JSON.stringify({ type: "error", error: err.message })}\n\n`);
+      res.end();
+    });
+
+    req.on("close", () => {
+      const maybeStream: unknown = stream;
+      if (
+        maybeStream &&
+        typeof maybeStream === "object" &&
+        "destroy" in maybeStream &&
+        typeof maybeStream.destroy === "function"
+      ) {
+        maybeStream.destroy();
+      }
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to open log stream";
+    res.status(500).json({ success: false, containerId, error: message });
+  }
+});
+
 
 instancesRouter.get("/:id/stats", async (req: Request, res: Response): Promise<void> => {
   const containerId = req.params.id;
@@ -107,6 +162,83 @@ instancesRouter.get("/:id/stats", async (req: Request, res: Response): Promise<v
     res.json({ success: true, containerId, stats });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to fetch stats";
+    res.status(500).json({ success: false, containerId, error: message });
+  }
+});
+
+// File Management Routes
+instancesRouter.get("/:id/files", async (req: Request, res: Response): Promise<void> => {
+  const containerId = req.params.id;
+  const dirPath = (req.query.path as string) || "/app";
+  try {
+    const files = await dockerSandbox.files.listFiles(containerId, dirPath);
+    res.json({ success: true, containerId, path: dirPath, files });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to list files";
+    res.status(500).json({ success: false, containerId, error: message });
+  }
+});
+
+instancesRouter.get("/:id/files/content", async (req: Request, res: Response): Promise<void> => {
+  const containerId = req.params.id;
+  const filePath = req.query.path as string;
+  if (!filePath) {
+    res.status(400).json({ success: false, error: "Query parameter 'path' is required" });
+    return;
+  }
+  try {
+    const content = await dockerSandbox.files.readFile(containerId, filePath);
+    res.json({ success: true, containerId, path: filePath, content });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to read file";
+    res.status(500).json({ success: false, containerId, error: message });
+  }
+});
+
+instancesRouter.post("/:id/files/content", async (req: Request, res: Response): Promise<void> => {
+  const containerId = req.params.id;
+  const { path: filePath, content } = req.body;
+  if (!filePath || typeof content !== "string") {
+    res.status(400).json({ success: false, error: "Body fields 'path' and 'content' are required" });
+    return;
+  }
+  try {
+    await dockerSandbox.files.writeFile(containerId, filePath, content);
+    res.json({ success: true, containerId, path: filePath });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to write file";
+    res.status(500).json({ success: false, containerId, error: message });
+  }
+});
+
+instancesRouter.delete("/:id/files", async (req: Request, res: Response): Promise<void> => {
+  const containerId = req.params.id;
+  const targetPath = req.query.path as string;
+  if (!targetPath) {
+    res.status(400).json({ success: false, error: "Query parameter 'path' is required" });
+    return;
+  }
+  try {
+    await dockerSandbox.files.deleteFile(containerId, targetPath);
+    res.json({ success: true, containerId, path: targetPath });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to delete file";
+    res.status(500).json({ success: false, containerId, error: message });
+  }
+});
+
+instancesRouter.post("/:id/files/directory", async (req: Request, res: Response): Promise<void> => {
+  const containerId = req.params.id;
+  const { path: dirPath } = req.body;
+  if (!dirPath) {
+    res.status(400).json({ success: false, error: "Body field 'path' is required" });
+    return;
+  }
+  try {
+    await dockerSandbox.files.createDirectory(containerId, dirPath);
+    res.json({ success: true, containerId, path: dirPath });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to create directory";
     res.status(500).json({ success: false, containerId, error: message });
   }
 });

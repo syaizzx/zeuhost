@@ -144,6 +144,14 @@ export class BotService {
     }
     return runtimeClient.getLogs(instance.containerId, tail);
   }
+  async getLogsStream(customerId: string, instanceId: string, tail = 50) {
+    const instance = await this.getCustomerInstance(customerId, instanceId);
+    if (!instance.containerId) {
+      throw new Error("No active container for this bot instance.");
+    }
+    return runtimeClient.getLogsStream(instance.containerId, tail);
+  }
+
 
   async getStats(customerId: string, instanceId: string) {
     const instance = await this.getCustomerInstance(customerId, instanceId);
@@ -176,6 +184,46 @@ export class BotService {
         lastStoppedAt: new Date(),
       },
     });
+  }
+
+  async listFiles(customerId: string, instanceId: string, dirPath = "/app") {
+    const instance = await this.getCustomerInstance(customerId, instanceId);
+    if (!instance.containerId || instance.status !== "RUNNING") {
+      throw new Error("Bot container is not running.");
+    }
+    return runtimeClient.listFiles(instance.containerId, dirPath);
+  }
+
+  async readFile(customerId: string, instanceId: string, filePath: string) {
+    const instance = await this.getCustomerInstance(customerId, instanceId);
+    if (!instance.containerId || instance.status !== "RUNNING") {
+      throw new Error("Bot container is not running.");
+    }
+    return runtimeClient.readFile(instance.containerId, filePath);
+  }
+
+  async writeFile(customerId: string, instanceId: string, filePath: string, content: string) {
+    const instance = await this.getCustomerInstance(customerId, instanceId);
+    if (!instance.containerId || instance.status !== "RUNNING") {
+      throw new Error("Bot container is not running.");
+    }
+    return runtimeClient.writeFile(instance.containerId, filePath, content);
+  }
+
+  async deleteFile(customerId: string, instanceId: string, targetPath: string) {
+    const instance = await this.getCustomerInstance(customerId, instanceId);
+    if (!instance.containerId || instance.status !== "RUNNING") {
+      throw new Error("Bot container is not running.");
+    }
+    return runtimeClient.deleteFile(instance.containerId, targetPath);
+  }
+
+  async createDirectory(customerId: string, instanceId: string, dirPath: string) {
+    const instance = await this.getCustomerInstance(customerId, instanceId);
+    if (!instance.containerId || instance.status !== "RUNNING") {
+      throw new Error("Bot container is not running.");
+    }
+    return runtimeClient.createDirectory(instance.containerId, dirPath);
   }
 }
 

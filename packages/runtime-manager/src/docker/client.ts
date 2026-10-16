@@ -1,5 +1,5 @@
 import Docker from "dockerode";
-
+import { ContainerFileManager } from "./files";
 export interface SpawnParams {
   instanceId: string;
   image: string;
@@ -9,12 +9,13 @@ export interface SpawnParams {
 }
 
 export class DockerSandboxClient {
-  private docker: Docker;
-
+  readonly docker: Docker;
+  readonly files: ContainerFileManager;
   constructor() {
     this.docker = new Docker({
       socketPath: process.env.DOCKER_SOCKET_PATH || "/var/run/docker.sock",
     });
+    this.files = new ContainerFileManager(this.docker);
   }
 
   async ping(): Promise<boolean> {
@@ -94,6 +95,17 @@ export class DockerSandboxClient {
       timestamps: true,
     });
     return logsBuffer.toString("utf-8");
+  }
+  async getLogsStream(containerId: string, tail = 50): Promise<NodeJS.ReadableStream> {
+    const container = this.docker.getContainer(containerId);
+    const stream = (await container.logs({
+      follow: true,
+      stdout: true,
+      stderr: true,
+      tail,
+      timestamps: true,
+    })) as unknown as NodeJS.ReadableStream;
+    return stream;
   }
 
   async getStats(containerId: string): Promise<{

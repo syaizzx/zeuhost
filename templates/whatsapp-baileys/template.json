@@ -1,0 +1,58 @@
+{
+  "$schema": "https://zeuhost.org/schemas/template-v1.json",
+  "name": "WhatsApp Bot (Baileys v6)",
+  "slug": "whatsapp-baileys-starter",
+  "version": "1.0.0",
+  "runtime": "NODEJS",
+  "description": "Template Jadibot WhatsApp menggunakan Baileys v6 dengan multi-device session, QR code scanner, dan 8-digit pairing code.",
+  "dockerImage": "zeuhost/template-whatsapp-baileys:1.0.0",
+  "resourceDefaults": {
+    "memoryMb": 256,
+    "cpuCores": 0.5,
+    "storageMb": 1024
+  },
+  "envVariables": [
+    {
+      "key": "BOT_NAME",
+      "label": "Nama Bot",
+      "description": "Nama tampilan bot WhatsApp",
+      "type": "string",
+      "required": false,
+      "default": "ZeuBot"
+    },
+    {
+      "key": "OWNER_NUMBER",
+      "label": "Nomor Owner",
+      "description": "Nomor WhatsApp owner dalam format internasional (contoh: 6281234567890)",
+      "type": "string",
+      "required": true
+    },
+    {
+      "key": "COMMAND_PREFIX",
+      "label": "Prefix Command",
+      "description": "Karakter prefix untuk command bot",
+      "type": "string",
+      "required": false,
+      "default": "!"
+    },
+    {
+      "key": "BOT_MODE",
+      "label": "Mode Bot",
+      "description": "public = semua orang bisa pakai, self = hanya owner",
+      "type": "string",
+      "required": false,
+      "default": "public"
+    },
+    {
+      "key": "PAIRING_NUMBER",
+      "label": "Nomor untuk Pairing Code",
+      "description": "Nomor WhatsApp bot untuk login via 8-digit pairing code (kosongkan untuk mode QR)",
+      "type": "string",
+      "required": false
+    }
+  ],
+  "healthCheck": {
+    "type": "process",
+    "timeoutSeconds": 60
+  }
+}

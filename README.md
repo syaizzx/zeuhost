@@ -69,6 +69,7 @@ zeuhost/
 ├── install.sh                    # Skrip installer otomatis 1 perintah
 ├── Makefile                      # Perintah praktis: make dev, make build, make test
 ├── plan.md                       # Master implementation plan
+├── ROADMAP.md                    # Cloud Hosting Specification & Gap Analysis
 ├── package.json                  # Workspace definition
 └── LICENSE                       # Apache-2.0 License
 ```

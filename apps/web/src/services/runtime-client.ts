@@ -108,6 +108,20 @@ export class RuntimeClient {
     const data = await res.json();
     return data.logs || "";
   }
+  async getLogsStream(containerId: string, tail = 50): Promise<ReadableStream<Uint8Array> | null> {
+    const path = `/instances/${containerId}/stream`;
+    const res = await fetch(`${RUNTIME_MANAGER_URL}${path}?tail=${tail}`, {
+      method: "GET",
+      headers: this.generateHeaders("GET", path),
+    });
+
+    if (!res.ok || !res.body) {
+      throw new Error(`Failed to stream logs: ${res.statusText}`);
+    }
+
+    return res.body;
+  }
+
 
   async getStats(containerId: string) {
     const path = `/instances/${containerId}/stats`;
@@ -121,6 +135,62 @@ export class RuntimeClient {
     }
     const data = await res.json();
     return data.stats;
+  }
+
+  async listFiles(containerId: string, dirPath = "/app") {
+    const path = `/instances/${containerId}/files`;
+    const res = await fetch(`${RUNTIME_MANAGER_URL}${path}?path=${encodeURIComponent(dirPath)}`, {
+      method: "GET",
+      headers: this.generateHeaders("GET", path),
+    });
+    if (!res.ok) throw new Error(`Failed to list files: ${res.statusText}`);
+    const data = await res.json();
+    return data.files || [];
+  }
+
+  async readFile(containerId: string, filePath: string) {
+    const path = `/instances/${containerId}/files/content`;
+    const res = await fetch(`${RUNTIME_MANAGER_URL}${path}?path=${encodeURIComponent(filePath)}`, {
+      method: "GET",
+      headers: this.generateHeaders("GET", path),
+    });
+    if (!res.ok) throw new Error(`Failed to read file: ${res.statusText}`);
+    const data = await res.json();
+    return data.content || "";
+  }
+
+  async writeFile(containerId: string, filePath: string, content: string) {
+    const path = `/instances/${containerId}/files/content`;
+    const body = { path: filePath, content };
+    const res = await fetch(`${RUNTIME_MANAGER_URL}${path}`, {
+      method: "POST",
+      headers: this.generateHeaders("POST", path, body),
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`Failed to write file: ${res.statusText}`);
+    return (await res.json()).success;
+  }
+
+  async deleteFile(containerId: string, targetPath: string) {
+    const path = `/instances/${containerId}/files`;
+    const res = await fetch(`${RUNTIME_MANAGER_URL}${path}?path=${encodeURIComponent(targetPath)}`, {
+      method: "DELETE",
+      headers: this.generateHeaders("DELETE", path),
+    });
+    if (!res.ok) throw new Error(`Failed to delete file: ${res.statusText}`);
+    return (await res.json()).success;
+  }
+
+  async createDirectory(containerId: string, dirPath: string) {
+    const path = `/instances/${containerId}/files/directory`;
+    const body = { path: dirPath };
+    const res = await fetch(`${RUNTIME_MANAGER_URL}${path}`, {
+      method: "POST",
+      headers: this.generateHeaders("POST", path, body),
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`Failed to create directory: ${res.statusText}`);
+    return (await res.json()).success;
   }
 }
 
