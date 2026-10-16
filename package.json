@@ -18,7 +18,8 @@
     "vps:preflight": "./scripts/preflight.sh",
     "vps:setup": "./scripts/setup.sh",
     "vps:owner": "./scripts/create-owner.sh",
-    "vps:backup": "./scripts/backup.sh"
+    "vps:backup": "./scripts/backup.sh",
+    "vps:update": "./update.sh"
   },
   "engines": {
     "node": ">=20.0.0"

@@ -114,15 +114,17 @@ export class PaymentService {
   }
 
   async createPaymentSubmission(customerId: string, input: SubmitPaymentInput) {
-    const plan = await prisma.plan.findUnique({
-      where: { id: input.planId },
+    const plan = await prisma.plan.findFirst({
+      where: {
+        OR: [{ id: input.planId }, { slug: input.planId }],
+      },
     });
 
     let subscriptionId: string | undefined = undefined;
 
     if (plan) {
       let subscription = await prisma.subscription.findFirst({
-        where: { customerId, planId: input.planId },
+        where: { customerId, planId: plan.id },
       });
 
       if (!subscription) {
@@ -130,7 +132,7 @@ export class PaymentService {
         subscription = await prisma.subscription.create({
           data: {
             customerId,
-            planId: input.planId,
+            planId: plan.id,
             status: "PAST_DUE",
             currentPeriodEnd: periodEnd,
           },
@@ -139,6 +141,10 @@ export class PaymentService {
       subscriptionId = subscription.id;
     }
 
+    const ref = input.providerReference && input.providerReference.trim()
+      ? input.providerReference.trim()
+      : `REF-${Date.now().toString().slice(-6)}`;
+
     return await prisma.paymentRecord.create({
       data: {
         customerId,
@@ -146,7 +152,7 @@ export class PaymentService {
         amount: input.amount,
         currency: input.currency || "IDR",
         method: (input.method as PaymentMethod) || "MANUAL_TRANSFER",
-        providerReference: input.providerReference,
+        providerReference: ref,
         proofDocumentUrl: input.proofDocumentUrl,
         status: "PENDING",
       },

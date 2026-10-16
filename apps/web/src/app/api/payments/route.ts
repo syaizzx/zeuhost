@@ -5,7 +5,7 @@ import { requireSession } from "@/lib/session";
 
 const paymentSubmissionSchema = z.object({
   planId: z.string().min(1),
-  amount: z.number().int().min(1),
+  amount: z.number().int().min(0),
   currency: z.string().default("IDR"),
   method: z.enum(["MANUAL_TRANSFER", "STRIPE", "CRYPTO", "EXTERNAL"]).default("MANUAL_TRANSFER"),
   providerReference: z.string().optional(),

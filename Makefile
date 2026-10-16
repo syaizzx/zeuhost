@@ -1,4 +1,4 @@
-.PHONY: help install dev build start test clean docker-up docker-down docker-logs
+.PHONY: help install update dev build start test clean docker-up docker-down docker-logs
 
 help:
 	@echo "ZeuHost Management Commands:"
@@ -10,9 +10,13 @@ help:
 	@echo "  make docker-up    Start full production stack with Docker Compose"
 	@echo "  make docker-down  Stop all running ZeuHost Docker containers"
 	@echo "  make docker-logs  Follow production Docker container logs"
+	@echo "  make update       Update ZeuHost to latest version safely (zero downtime)"
 
 install:
 	bun install || npm install
+
+update:
+	./update.sh
 
 dev:
 	npm run dev

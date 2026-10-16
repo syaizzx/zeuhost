@@ -1,5 +1,6 @@
 import { auth } from "./auth";
 import { headers } from "next/headers";
+import { prisma } from "@zeuhost/db";
 
 export interface SessionUser {
   id: string;
@@ -15,26 +16,25 @@ export async function getSessionUser(): Promise<SessionUser | null> {
       headers: headerStore,
     });
 
-    if (!session?.user) return null;
+    if (!session?.user?.id) return null;
 
-    let role: SessionUser["role"] = "CUSTOMER";
-    if ("role" in session.user && typeof session.user.role === "string") {
-      if (session.user.role === "OWNER" || session.user.role === "STAFF") {
-        role = session.user.role;
-      }
-    }
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { id: true, email: true, name: true, role: true, status: true },
+    });
+
+    if (!dbUser || dbUser.status === "SUSPENDED") return null;
 
     return {
-      id: session.user.id,
-      email: session.user.email,
-      name: session.user.name ?? null,
-      role,
+      id: dbUser.id,
+      email: dbUser.email,
+      name: dbUser.name ?? null,
+      role: dbUser.role,
     };
   } catch {
     return null;
   }
 }
-
 export async function requireSession(): Promise<SessionUser> {
   const user = await getSessionUser();
   if (!user) {

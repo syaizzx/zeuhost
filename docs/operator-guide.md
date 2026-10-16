@@ -93,3 +93,23 @@ File snapshot database terkompresi disimpan di `/var/backups/zeuhost/zeuhost_db_
 ```bash
 gunzip -c /var/backups/zeuhost/zeuhost_db_YYYYMMDD_HHMMSS.sql.gz | docker exec -i zeuhost-postgres psql -U zeuhost -d zeuhost
 ```
+
+---
+
+## 7. Cara Memperbarui Platform (Update Zero-Downtime)
+
+Saat ada pembaruan fitur atau perbaikan sistem, **JANGAN menjalankan `install.sh` kembali**. Cukup jalankan perintah pembaruan otomatis berikut:
+
+```bash
+cd /opt/zeuhost && ./update.sh
+# atau
+make update
+```
+
+### Apa yang Dilakukan oleh Skrip Updater Otomatis:
+1. Mengambil kode terbaru via `git pull`.
+2. Membuat backup snapshot database otomatis sebelum pembaruan diterapkan.
+3. Mendeteksi variabel konfigurasi baru di `.env.example` dan menyinkronkannya ke `.env` Anda tanpa mengubah password atau domain yang sudah ada.
+4. Menerapkan migrasi database Prisma (`prisma migrate deploy` atau `db push`) dan seeding template bot baru (misal: Baileys v6).
+5. Membangun ulang container `web` dan `runtime-manager` secara aman dengan zero-downtime tanpa me-restart database PostgreSQL atau memutus bot pelanggan.
+6. Membersihkan cache build Docker lama untuk menghemat kapasitas harddisk VPS.

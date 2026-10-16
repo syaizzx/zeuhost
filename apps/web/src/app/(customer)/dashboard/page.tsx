@@ -510,15 +510,13 @@ export default function CustomerDashboardPage() {
               </span>
             )}
 
-            <button
-              onClick={() => {
-                if (availablePlans.length > 0) handleStartCheckout(availablePlans[0]);
-              }}
-              className="px-3 py-1.5 rounded-lg border border-border bg-card text-foreground text-xs font-medium hover:bg-muted transition-colors flex items-center gap-1.5"
+            <Link
+              href="/buy"
+              className="px-3 py-1.5 rounded-lg border border-border bg-card text-foreground text-xs font-medium hover:bg-muted transition-colors flex items-center gap-1.5 shadow-xs"
             >
               <CreditCard className="w-3.5 h-3.5 text-accent" />
               <span>{hasActiveSubscription ? "Ubah Paket" : "Beli Paket"}</span>
-            </button>
+            </Link>
 
             {hasActiveSubscription && (
               <button
@@ -557,134 +555,24 @@ export default function CustomerDashboardPage() {
           /* VIEW 1: NO ACTIVE SUBSCRIPTION -> PLAN CATALOG & BUY SELECTION ONLY        */
           /* TIDAK MENAMPILKAN APAPUN TENTANG SERVER / BOT KARENA BELUM MEMILIKI PAKET */
           /* ========================================================================= */
-          <div className="space-y-8 py-4">
-            <div className="text-center max-w-2xl mx-auto space-y-3">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent/10 border border-accent/20 text-accent text-xs font-semibold">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Langkah Awal Memulai</span>
-              </div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">
-                Pilih Paket Cloud Hosting Anda
-              </h2>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Anda belum memiliki paket hosting yang aktif. Pilih paket di bawah ini sesuai kebutuhan Anda.
-                Tiap jenis paket memiliki sistem dan fitur yang berbeda.
+          <div className="py-20 px-6 max-w-md mx-auto text-center bg-card border border-border rounded-2xl space-y-4 shadow-md">
+            <div className="w-12 h-12 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center mx-auto text-accent">
+              <CreditCard className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-foreground">Paket Hosting Belum Aktif</h2>
+              <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                Anda belum memiliki paket sewa bot atau web hosting yang aktif. Pilih paket terlebih dahulu di halaman pembelian untuk mulai membuat bot atau mengunggah aplikasi.
               </p>
             </div>
-
-            {/* Catalog Category Tabs */}
-            <div className="flex items-center justify-center gap-2 border-b border-border pb-3">
-              <button
-                onClick={() => setSelectedCatalogCategory("ALL")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                  selectedCatalogCategory === "ALL"
-                    ? "bg-accent text-black shadow-xs"
-                    : "text-muted-foreground hover:text-foreground bg-card border border-border"
-                }`}
+            <div className="pt-2">
+              <Link
+                href="/buy"
+                className="w-full py-2.5 rounded-xl bg-accent text-black text-xs font-bold hover:bg-emerald-400 transition-colors inline-flex items-center justify-center gap-2 shadow-xs"
               >
-                Semua Paket
-              </button>
-              <button
-                onClick={() => setSelectedCatalogCategory("BOT_HOSTING")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
-                  selectedCatalogCategory === "BOT_HOSTING"
-                    ? "bg-accent text-black shadow-xs"
-                    : "text-muted-foreground hover:text-foreground bg-card border border-border"
-                }`}
-              >
-                <Bot className="w-3.5 h-3.5" />
-                <span>Khusus Bot (Kode Tertanam)</span>
-              </button>
-              <button
-                onClick={() => setSelectedCatalogCategory("WEB_NODEJS")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
-                  selectedCatalogCategory === "WEB_NODEJS"
-                    ? "bg-accent text-black shadow-xs"
-                    : "text-muted-foreground hover:text-foreground bg-card border border-border"
-                }`}
-              >
-                <Globe className="w-3.5 h-3.5" />
-                <span>Web &amp; Node.js PaaS</span>
-              </button>
-              <button
-                onClick={() => setSelectedCatalogCategory("PYTHON_APP")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
-                  selectedCatalogCategory === "PYTHON_APP"
-                    ? "bg-accent text-black shadow-xs"
-                    : "text-muted-foreground hover:text-foreground bg-card border border-border"
-                }`}
-              >
-                <Code2 className="w-3.5 h-3.5" />
-                <span>Python Cloud</span>
-              </button>
-            </div>
-
-            {/* Plan Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredPlans.map((plan) => (
-                <div
-                  key={plan.id}
-                  className="bg-card border border-border rounded-2xl p-6 flex flex-col justify-between hover:border-zinc-700 transition-all shadow-md relative overflow-hidden group"
-                >
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-mono uppercase tracking-wider font-semibold px-2 py-0.5 rounded bg-muted text-muted-foreground">
-                        {plan.category === "BOT_HOSTING" ? "🤖 Bot Managed" : "⚡ Cloud PaaS"}
-                      </span>
-                      {plan.category === "BOT_HOSTING" && (
-                        <span className="text-[10px] text-accent font-semibold">Zero-Code</span>
-                      )}
-                    </div>
-
-                    <div>
-                      <h3 className="text-lg font-bold text-foreground group-hover:text-accent transition-colors">
-                        {plan.name}
-                      </h3>
-                      <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed min-h-10">
-                        {plan.description}
-                      </p>
-                    </div>
-
-                    <div className="pt-2 border-t border-border/60">
-                      <div className="text-2xl font-black text-foreground">
-                        Rp {plan.priceMonthly.toLocaleString("id-ID")}
-                        <span className="text-xs font-normal text-muted-foreground"> / bulan</span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 pt-2 text-xs text-zinc-300">
-                      <div className="flex items-center justify-between py-1 border-b border-border/40">
-                        <span className="text-muted-foreground">Alokasi RAM</span>
-                        <span className="font-semibold text-foreground">{plan.maxMemoryPerInstanceMb} MB / bot</span>
-                      </div>
-                      <div className="flex items-center justify-between py-1 border-b border-border/40">
-                        <span className="text-muted-foreground">Batas CPU</span>
-                        <span className="font-semibold text-foreground">{plan.maxCpuPerInstance} vCPU Core</span>
-                      </div>
-                      <div className="flex items-center justify-between py-1 border-b border-border/40">
-                        <span className="text-muted-foreground">Kapasitas Instance</span>
-                        <span className="font-semibold text-foreground">Maksimal {plan.maxInstances} Instance</span>
-                      </div>
-                      <div className="flex items-center justify-between py-1 border-b border-border/40">
-                        <span className="text-muted-foreground">Akses File Manager</span>
-                        <span className={`font-semibold ${plan.hasFileManager ? "text-accent" : "text-zinc-500"}`}>
-                          {plan.hasFileManager ? "Aktif (Monaco Editor)" : "Tertanam (Cukup Terminal)"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-6">
-                    <button
-                      onClick={() => handleStartCheckout(plan)}
-                      className="w-full py-2.5 rounded-xl bg-accent text-black text-xs font-bold hover:bg-emerald-400 transition-colors flex items-center justify-center gap-2 shadow-xs"
-                    >
-                      <span>Aktifkan Paket Ini</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                <span>Pilih Paket di Halaman /buy</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
             </div>
           </div>
         ) : (

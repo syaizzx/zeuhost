@@ -17,8 +17,8 @@ import {
   Activity,
   Layers,
 } from "lucide-react";
+import { useSession, signOut } from "@/lib/auth-client";
 import { LiveBotPreview } from "@/components/LiveBotPreview";
-
 interface FaqItem {
   question: string;
   answer: string;
@@ -48,6 +48,7 @@ const FAQS: FaqItem[] = [
 ];
 
 export default function HomePage() {
+  const { data: session } = useSession();
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   const toggleFaq = (index: number) => {
@@ -87,18 +88,50 @@ export default function HomePage() {
           </nav>
 
           <div className="flex items-center gap-3">
-            <Link
-              href="/login"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground px-2 py-1 transition-colors"
-            >
-              Masuk
-            </Link>
-            <Link
-              href="/register"
-              className="px-4 py-2 rounded-lg bg-accent text-black text-sm font-semibold hover:bg-emerald-400 transition-colors shadow-sm"
-            >
-              Coba Gratis
-            </Link>
+            {session?.user ? (
+              <>
+                <Link
+                  href="/buy"
+                  className="text-xs font-semibold text-muted-foreground hover:text-foreground px-2 py-1 transition-colors hidden sm:inline"
+                >
+                  Katalog /buy
+                </Link>
+                <Link
+                  href="/dashboard"
+                  className="px-3.5 py-1.5 rounded-lg bg-accent text-black text-xs font-bold hover:bg-emerald-400 transition-colors shadow-xs"
+                >
+                  Dashboard Saya
+                </Link>
+                <button
+                  onClick={() => signOut({ fetchOptions: { onSuccess: () => { window.location.href = "/"; } } })}
+                  className="text-xs text-muted-foreground hover:text-rose-400 px-2 py-1 transition-colors"
+                  title="Keluar"
+                >
+                  Keluar
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/buy"
+                  className="text-xs font-semibold text-accent hover:underline px-2 py-1 transition-colors"
+                >
+                  Pilihan Paket
+                </Link>
+                <Link
+                  href="/login"
+                  className="text-xs font-medium text-muted-foreground hover:text-foreground px-2 py-1 transition-colors"
+                >
+                  Masuk
+                </Link>
+                <Link
+                  href="/register"
+                  className="px-3.5 py-1.5 rounded-lg bg-accent text-black text-xs font-bold hover:bg-emerald-400 transition-colors shadow-xs"
+                >
+                  Daftar
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -276,57 +309,57 @@ export default function HomePage() {
           <div className="max-w-4xl mx-auto px-4 sm:px-6">
             <div className="text-center max-w-xl mx-auto mb-14">
               <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-                Pilihan paket sewa
+                Pilihan Paket Hosting Cloud
               </h2>
               <p className="text-sm text-muted-foreground mt-2">
-                Mulai dari coba gratis tanpa syarat, atau pilih paket bulanan terjangkau.
+                Pilih paket sewa bot WhatsApp otomatis tanpa koding, atau paket Web &amp; Node.js dengan akses file penuh.
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch">
-              {/* Plan 1: Free Trial */}
+              {/* Plan 1: Bot Starter */}
               <div className="p-6 rounded-xl card-elevation flex flex-col justify-between">
                 <div>
-                  <div className="text-xs font-semibold text-muted-foreground">Trial 7 Hari</div>
+                  <div className="text-xs font-semibold text-muted-foreground">Bot Jadibot Starter</div>
                   <div className="mt-2 flex items-baseline gap-1">
-                    <span className="text-3xl font-bold text-foreground">Rp 0</span>
-                    <span className="text-xs text-muted-foreground">/ 7 hari</span>
+                    <span className="text-3xl font-bold text-foreground">Rp 15.000</span>
+                    <span className="text-xs text-muted-foreground">/ bulan</span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
-                    Cocok untuk mencoba stabilitas dan performa bot kamu terlebih dahulu.
+                    Hosting bot WhatsApp atau Discord otomatis. Kode tertanam paten, langsung hubungkan via QR.
                   </p>
 
                   <ul className="mt-6 pt-5 border-t border-border space-y-2.5 text-xs text-muted-foreground">
                     <li className="flex items-center gap-2">
                       <Check className="w-3.5 h-3.5 text-accent shrink-0" />
-                      <span>1 bot aktif</span>
+                      <span>1 bot aktif 24 jam</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <Check className="w-3.5 h-3.5 text-accent shrink-0" />
-                      <span>Alokasi memori 256 MB</span>
+                      <span>Alokasi memori 256 MB RAM</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <Check className="w-3.5 h-3.5 text-accent shrink-0" />
-                      <span>Dukungan WhatsApp / Discord / TG</span>
+                      <span>Kode bot tertanam (Zero-Code)</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <Check className="w-3.5 h-3.5 text-accent shrink-0" />
-                      <span>Auto-restart mandiri</span>
+                      <span>Live Terminal &amp; Pairing Code</span>
                     </li>
                   </ul>
                 </div>
 
                 <div className="mt-8 pt-4">
                   <Link
-                    href="/register"
+                    href="/buy"
                     className="w-full py-2.5 rounded-lg bg-muted hover:bg-zinc-800 text-foreground text-xs font-semibold transition-colors flex items-center justify-center border border-border"
                   >
-                    Daftar Coba Gratis
+                    Pilih Bot Starter
                   </Link>
                 </div>
               </div>
 
-              {/* Plan 2: Pro (Recommended) */}
+              {/* Plan 2: Pro Jadibot (Recommended) */}
               <div className="p-6 rounded-xl bg-card border-2 border-accent flex flex-col justify-between relative shadow-lg">
                 <div>
                   <div className="text-xs font-semibold text-accent">Paling Populer</div>
@@ -353,18 +386,18 @@ export default function HomePage() {
                     </li>
                     <li className="flex items-center gap-2">
                       <Check className="w-3.5 h-3.5 text-accent shrink-0" />
-                      <span>Auto-restart instan</span>
+                      <span>Live Telemetry (RAM &amp; CPU)</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <Check className="w-3.5 h-3.5 text-accent shrink-0" />
-                      <span>Panel kontrol web dan log live</span>
+                      <span>Scan QR &amp; 8-Digit Pairing Code</span>
                     </li>
                   </ul>
                 </div>
 
                 <div className="mt-8 pt-4">
                   <Link
-                    href="/register"
+                    href="/buy"
                     className="w-full py-2.5 rounded-lg bg-accent hover:bg-emerald-400 text-black text-xs font-semibold transition-colors flex items-center justify-center shadow-sm"
                   >
                     Pilih Paket Pro
@@ -372,44 +405,44 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Plan 3: Reseller */}
+              {/* Plan 3: Web & Node.js PaaS */}
               <div className="p-6 rounded-xl card-elevation flex flex-col justify-between">
                 <div>
-                  <div className="text-xs font-semibold text-muted-foreground">Paket Reseller</div>
+                  <div className="text-xs font-semibold text-muted-foreground">Web &amp; Node.js PaaS</div>
                   <div className="mt-2 flex items-baseline gap-1">
-                    <span className="text-3xl font-bold text-foreground">Rp 75.000</span>
+                    <span className="text-3xl font-bold text-foreground">Rp 45.000</span>
                     <span className="text-xs text-muted-foreground">/ bulan</span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
-                    Untuk komunitas besar atau yang ingin menyewakan kembali layanan bot ke orang lain.
+                    Hosting aplikasi web, Express backend, atau custom bot dengan akses Web File Manager.
                   </p>
 
                   <ul className="mt-6 pt-5 border-t border-border space-y-2.5 text-xs text-muted-foreground">
                     <li className="flex items-center gap-2">
                       <Check className="w-3.5 h-3.5 text-accent shrink-0" />
-                      <span>Banyak bot sesuai kebutuhan</span>
+                      <span>Hingga 5 aplikasi / instance</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <Check className="w-3.5 h-3.5 text-accent shrink-0" />
-                      <span>Kapasitas memori besar (2 GB)</span>
+                      <span>Kapasitas memori besar (1 GB RAM)</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <Check className="w-3.5 h-3.5 text-accent shrink-0" />
-                      <span>Bisa disewakan kembali</span>
+                      <span>Web File Manager &amp; Monaco Editor</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <Check className="w-3.5 h-3.5 text-accent shrink-0" />
-                      <span>Bantuan teknis prioritas</span>
+                      <span>Port Mapping &amp; Reverse Proxy Caddy</span>
                     </li>
                   </ul>
                 </div>
 
                 <div className="mt-8 pt-4">
                   <Link
-                    href="/register"
+                    href="/buy"
                     className="w-full py-2.5 rounded-lg bg-muted hover:bg-zinc-800 text-foreground text-xs font-semibold transition-colors flex items-center justify-center border border-border"
                   >
-                    Pilih Paket Reseller
+                    Pilih Paket Web PaaS
                   </Link>
                 </div>
               </div>
