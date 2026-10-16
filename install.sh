@@ -191,7 +191,7 @@ sleep 6
 
 # Apply database migrations & seed initial plans & templates
 echo -e "${BLUE}[*] Menerapkan migrasi database dan seeding template resmi...${NC}"
-docker compose -f "$INSTALL_DIR/deploy/docker-compose.yml" exec -T web bun run --cwd packages/db migrate:deploy || true
+docker compose -f "$INSTALL_DIR/deploy/docker-compose.yml" exec -T web bun run --cwd packages/db migrate:deploy || docker compose -f "$INSTALL_DIR/deploy/docker-compose.yml" exec -T web bun run --cwd packages/db db:push || true
 docker compose -f "$INSTALL_DIR/deploy/docker-compose.yml" exec -T web bun run --cwd packages/db seed || true
 
 # Bootstrap Admin Owner Account in PostgreSQL

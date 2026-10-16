@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   caddy:
     image: caddy:2.8-alpine
@@ -8,6 +6,10 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      - PUBLIC_URL=${PUBLIC_URL:-http://localhost}
+      - HOST_DOMAIN=${HOST_DOMAIN:-localhost}
+      - ACME_EMAIL=${ACME_EMAIL:-admin@example.com}
     volumes:
       - ./reverse-proxy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data

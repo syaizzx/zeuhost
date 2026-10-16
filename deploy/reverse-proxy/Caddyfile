@@ -1,25 +1,22 @@
 {
-    email {$ACME_EMAIL:admin@example.com}
-    admin off
+	email {$ACME_EMAIL:admin@example.com}
+	admin off
 }
 
-{$HOST_DOMAIN:localhost} {
-    encode gzip zstd
+{$PUBLIC_URL:http://localhost}, http://localhost {
+	encode gzip zstd
 
-    # Security headers
-    header {
-        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-        X-Content-Type-Options "nosniff"
-        X-Frame-Options "DENY"
-        Referrer-Policy "strict-origin-when-cross-origin"
-        Permissions-Policy "camera=(), microphone=(), geolocation=()"
-    }
+	# Security headers
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	}
 
-    # Proxy to Next.js Web App
-    reverse_proxy web:3000 {
-        header_up Host {host}
-        header_up X-Real-IP {remote}
-        header_up X-Forwarded-For {remote}
-        header_up X-Forwarded-Proto {scheme}
-    }
+	# Proxy to Next.js Web App
+	reverse_proxy web:3000 {
+		header_up Host {host}
+		header_up X-Real-IP {remote}
+	}
 }
