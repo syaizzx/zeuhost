@@ -117,9 +117,9 @@ export class PlanService {
     }
   }
 
-  async getCustomerActiveSubscription(customerId: string) {
+  async getCustomerActiveSubscriptions(customerId: string) {
     try {
-      const subscription = await prisma.subscription.findFirst({
+      const subscriptions = await prisma.subscription.findMany({
         where: {
           customerId,
           status: { in: ["ACTIVE", "GRACE_PERIOD"] },
@@ -128,52 +128,46 @@ export class PlanService {
         orderBy: { createdAt: "desc" },
       });
 
-      if (!subscription || !subscription.plan) return null;
-
-      return {
-        ...subscription,
-        plan: enrichPlan(subscription.plan),
-      };
+      return subscriptions.map((sub) => ({
+        ...sub,
+        plan: enrichPlan(sub.plan),
+      }));
     } catch {
-      return null;
+      return [];
     }
+  }
+
+  async getCustomerActiveSubscription(customerId: string) {
+    const subs = await this.getCustomerActiveSubscriptions(customerId);
+    return subs.length > 0 ? subs[0] : null;
   }
 
   async checkCustomerQuota(customerId: string): Promise<{
     allowed: boolean;
     reason?: string;
+    totalSlots: number;
+    usedSlots: number;
     maxMemoryMb: number;
     maxCpuCores: number;
-    hasFileManager: boolean;
-    category: string;
   }> {
     try {
-      const subscription = await prisma.subscription.findFirst({
-        where: {
-          customerId,
-          status: { in: ["ACTIVE", "GRACE_PERIOD"] },
-        },
-        include: { plan: true },
-        orderBy: { createdAt: "desc" },
-      });
+      const activeSubs = await this.getCustomerActiveSubscriptions(customerId);
 
-      if (!subscription || !subscription.plan) {
+      if (activeSubs.length === 0) {
         return {
           allowed: false,
-          reason: "Anda belum memiliki paket hosting aktif. Silakan pilih dan aktifkan paket terlebih dahulu di /buy.",
+          reason: "Anda belum memiliki paket hosting aktif. Silakan beli paket hosting terlebih dahulu di /buy.",
+          totalSlots: 0,
+          usedSlots: 0,
           maxMemoryMb: 0,
           maxCpuCores: 0,
-          hasFileManager: false,
-          category: "NONE",
         };
       }
 
-      const plan = enrichPlan(subscription.plan);
-      const maxInstances = plan.maxInstances ?? 1;
-      const maxMemoryMb = plan.maxMemoryPerInstanceMb ?? 256;
-      const maxCpuCores = plan.maxCpuPerInstance ?? 0.5;
-      const hasFileManager = plan.hasFileManager;
-      const category = plan.category;
+      // Sum all slots from all purchased active packages (Pterodactyl multi-server model)
+      const totalSlots = activeSubs.reduce((acc, sub) => acc + (sub.plan.maxInstances || 1), 0);
+      const maxMemoryMb = Math.max(...activeSubs.map((s) => s.plan.maxMemoryPerInstanceMb || 256));
+      const maxCpuCores = Math.max(...activeSubs.map((s) => s.plan.maxCpuPerInstance || 0.5));
 
       const activeInstanceCount = await prisma.botInstance.count({
         where: {
@@ -182,32 +176,32 @@ export class PlanService {
         },
       });
 
-      if (activeInstanceCount >= maxInstances) {
+      if (activeInstanceCount >= totalSlots) {
         return {
           allowed: false,
-          reason: `Batas kuota instance tercapai (${activeInstanceCount}/${maxInstances}). Silakan upgrade paket untuk menambah instance.`,
+          reason: `Seluruh slot server hosting Anda (${activeInstanceCount}/${totalSlots} server) telah terpakai. Silakan beli paket hosting tambahan di /buy.`,
+          totalSlots,
+          usedSlots: activeInstanceCount,
           maxMemoryMb,
           maxCpuCores,
-          hasFileManager,
-          category,
         };
       }
 
       return {
         allowed: true,
+        totalSlots,
+        usedSlots: activeInstanceCount,
         maxMemoryMb,
         maxCpuCores,
-        hasFileManager,
-        category,
       };
     } catch {
       return {
         allowed: false,
-        reason: "Gagal memverifikasi status paket langganan.",
+        reason: "Gagal memverifikasi kuota server hosting.",
+        totalSlots: 0,
+        usedSlots: 0,
         maxMemoryMb: 0,
         maxCpuCores: 0,
-        hasFileManager: false,
-        category: "NONE",
       };
     }
   }

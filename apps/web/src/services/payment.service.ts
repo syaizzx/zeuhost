@@ -77,22 +77,16 @@ export class PaymentService {
       currency: plan.currency,
     });
 
-    // Ensure subscription record exists
-    let subscription = await prisma.subscription.findFirst({
-      where: { customerId, planId },
+    // Each package purchase provisions a new independent hosting server slot
+    const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const subscription = await prisma.subscription.create({
+      data: {
+        customerId,
+        planId: plan.id,
+        status: "PAST_DUE",
+        currentPeriodEnd: periodEnd,
+      },
     });
-
-    if (!subscription) {
-      const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-      subscription = await prisma.subscription.create({
-        data: {
-          customerId,
-          planId,
-          status: "PAST_DUE",
-          currentPeriodEnd: periodEnd,
-        },
-      });
-    }
 
     // Create pending payment record
     const record = await prisma.paymentRecord.create({
@@ -123,21 +117,15 @@ export class PaymentService {
     let subscriptionId: string | undefined = undefined;
 
     if (plan) {
-      let subscription = await prisma.subscription.findFirst({
-        where: { customerId, planId: plan.id },
+      const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      const subscription = await prisma.subscription.create({
+        data: {
+          customerId,
+          planId: plan.id,
+          status: "PAST_DUE",
+          currentPeriodEnd: periodEnd,
+        },
       });
-
-      if (!subscription) {
-        const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-        subscription = await prisma.subscription.create({
-          data: {
-            customerId,
-            planId: plan.id,
-            status: "PAST_DUE",
-            currentPeriodEnd: periodEnd,
-          },
-        });
-      }
       subscriptionId = subscription.id;
     }
 

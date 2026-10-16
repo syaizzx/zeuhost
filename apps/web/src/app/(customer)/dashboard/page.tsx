@@ -665,8 +665,17 @@ export default function CustomerDashboardPage() {
                 {/* Instance List */}
                 <div className="lg:col-span-5 space-y-3">
                   <div className="flex items-center justify-between pb-1">
-                    <h2 className="text-sm font-semibold text-foreground">Daftar Instance</h2>
-                    <span className="text-xs text-muted-foreground">{instances.length} aktif</span>
+                    <div>
+                      <h2 className="text-sm font-semibold text-foreground">Server Hosting Anda</h2>
+                      <span className="text-xs text-muted-foreground">{instances.length} server aktif</span>
+                    </div>
+                    <Link
+                      href="/buy"
+                      className="px-2.5 py-1 rounded-lg bg-accent text-black text-xs font-semibold hover:bg-emerald-400 transition-colors flex items-center gap-1 shadow-xs"
+                    >
+                      <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span>Beli Server Baru</span>
+                    </Link>
                   </div>
 
                   {instances.map((bot) => (
@@ -818,7 +827,8 @@ export default function CustomerDashboardPage() {
                     </div>
 
                     {/* Navigation Tabs: Jika BOT HOSTING, HANYA ADA TERMINAL! File Manager disembunyikan. */}
-                    {!isBotHostingPlan && (
+                    {/* Per-Server Feature Isolation: Jika tipe Bot (WA, Discord, TG), KODE TERTANAM PATEN! Hanya ada Terminal. */}
+                    {selectedBot.platform === "web" || selectedBot.platform === "python" ? (
                       <div className="flex items-center gap-2 border-b border-border pb-1">
                         <button
                           onClick={() => setActiveInspectorTab("terminal")}
@@ -844,10 +854,10 @@ export default function CustomerDashboardPage() {
                           <span>File Manager</span>
                         </button>
                       </div>
-                    )}
+                    ) : null}
 
                     {/* Content: Terminal Console atau File Manager */}
-                    {isBotHostingPlan || activeInspectorTab === "terminal" ? (
+                    {selectedBot.platform !== "web" && selectedBot.platform !== "python" || activeInspectorTab === "terminal" ? (
                       <LiveTerminal
                         instanceId={selectedBot.id}
                         status={selectedBot.status}
