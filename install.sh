@@ -160,20 +160,37 @@ fi
 # 7. Generate Environment Secrets
 echo -e "\n${BLUE}[5/6] Mengenerate kunci keamanan & konfigurasi .env...${NC}"
 ENV_FILE="$INSTALL_DIR/deploy/.env"
-cp "$INSTALL_DIR/deploy/.env.example" "$ENV_FILE"
 
-AUTH_SECRET=$(openssl rand -hex 32)
-HMAC_SECRET=$(openssl rand -hex 32)
-ENCRYPT_KEY=$(openssl rand -hex 32)
-DB_PASS=$(openssl rand -hex 16)
+if [ -f "$ENV_FILE" ]; then
+  echo -e "${YELLOW}[+] File .env sudah ada, mempertahankan kredensial yang ada...${NC}"
+  DB_PASS=$(grep -E '^POSTGRES_PASSWORD=' "$ENV_FILE" | cut -d '=' -f2- || true)
+  if [ -z "$DB_PASS" ] || [ "$DB_PASS" = "CHANGE_ME_DB_PASSWORD" ]; then
+    DB_PASS=$(openssl rand -hex 16)
+  fi
+  AUTH_SECRET=$(grep -E '^BETTER_AUTH_SECRET=' "$ENV_FILE" | cut -d '=' -f2- || openssl rand -hex 32)
+  HMAC_SECRET=$(grep -E '^RUNTIME_MANAGER_HMAC_SECRET=' "$ENV_FILE" | cut -d '=' -f2- || openssl rand -hex 32)
+  ENCRYPT_KEY=$(grep -E '^INSTANCE_SECRET_KEY=' "$ENV_FILE" | cut -d '=' -f2- || openssl rand -hex 32)
+else
+  cp "$INSTALL_DIR/deploy/.env.example" "$ENV_FILE"
+  AUTH_SECRET=$(openssl rand -hex 32)
+  HMAC_SECRET=$(openssl rand -hex 32)
+  ENCRYPT_KEY=$(openssl rand -hex 32)
+  DB_PASS=$(openssl rand -hex 16)
+fi
 
 # Update .env
 sed -i "s|HOST_DOMAIN=.*|HOST_DOMAIN=${DOMAIN}|g" "$ENV_FILE"
 sed -i "s|PUBLIC_URL=.*|PUBLIC_URL=${PUBLIC_URL}|g" "$ENV_FILE"
+sed -i "s|BETTER_AUTH_URL=.*|BETTER_AUTH_URL=${PUBLIC_URL}|g" "$ENV_FILE"
 sed -i "s|CHANGE_ME_DB_PASSWORD|${DB_PASS}|g" "$ENV_FILE"
+sed -i "s|POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=${DB_PASS}|g" "$ENV_FILE"
+sed -i "s|DATABASE_URL=.*|DATABASE_URL=postgresql://zeuhost:${DB_PASS}@postgres:5432/zeuhost?schema=public|g" "$ENV_FILE"
 sed -i "s|CHANGE_ME_AUTH_SECRET_MIN_32_CHARS|${AUTH_SECRET}|g" "$ENV_FILE"
+sed -i "s|BETTER_AUTH_SECRET=.*|BETTER_AUTH_SECRET=${AUTH_SECRET}|g" "$ENV_FILE"
 sed -i "s|CHANGE_ME_HMAC_SECRET_FOR_CONTROL_CHANNEL|${HMAC_SECRET}|g" "$ENV_FILE"
+sed -i "s|RUNTIME_MANAGER_HMAC_SECRET=.*|RUNTIME_MANAGER_HMAC_SECRET=${HMAC_SECRET}|g" "$ENV_FILE"
 sed -i "s|CHANGE_ME_64_HEX_CHARACTERS_FOR_AES_256_GCM_ENCRYPTION|${ENCRYPT_KEY}|g" "$ENV_FILE"
+sed -i "s|INSTANCE_SECRET_KEY=.*|INSTANCE_SECRET_KEY=${ENCRYPT_KEY}|g" "$ENV_FILE"
 
 # Configure Firewall
 if command -v ufw &>/dev/null && ufw status | grep -q "Status: active"; then
@@ -186,16 +203,28 @@ fi
 echo -e "\n${BLUE}[6/6] Menjalankan seluruh container ZeuHost (Caddy, Web, Runtime, PostgreSQL)...${NC}"
 docker compose -f "$INSTALL_DIR/deploy/docker-compose.yml" --env-file "$ENV_FILE" up -d --build
 
-echo -e "${BLUE}[*] Menunggu database PostgreSQL siap...${NC}"
-sleep 6
+echo -e "${BLUE}[*] Menunggu database PostgreSQL siap menerima koneksi...${NC}"
+for i in {1..30}; do
+  if docker compose -f "$INSTALL_DIR/deploy/docker-compose.yml" exec -T postgres pg_isready -U zeuhost &>/dev/null; then
+    break
+  fi
+  sleep 1
+done
+sleep 2
+
+# Sinkronkan password di database postgres agar selalu cocok dengan .env
+docker compose -f "$INSTALL_DIR/deploy/docker-compose.yml" exec -T postgres psql -U zeuhost -d postgres -c "ALTER USER zeuhost WITH PASSWORD '${DB_PASS}';" >/dev/null 2>&1 || true
 
 # Apply database migrations & seed initial plans & templates
 echo -e "${BLUE}[*] Menerapkan migrasi database dan seeding template resmi...${NC}"
-docker compose -f "$INSTALL_DIR/deploy/docker-compose.yml" exec -T web bun run --cwd packages/db migrate:deploy || docker compose -f "$INSTALL_DIR/deploy/docker-compose.yml" exec -T web bun run --cwd packages/db db:push || true
+docker compose -f "$INSTALL_DIR/deploy/docker-compose.yml" exec -T web bun run --cwd packages/db migrate:deploy || \
+docker compose -f "$INSTALL_DIR/deploy/docker-compose.yml" exec -T web bun run --cwd packages/db db:push || true
+
 docker compose -f "$INSTALL_DIR/deploy/docker-compose.yml" exec -T web bun run --cwd packages/db seed || true
 
-# Bootstrap Admin Owner Account in PostgreSQL
+# Bootstrap Admin Owner Account
 echo -e "${BLUE}[*] Membuat akun Owner Operator...${NC}"
+docker compose -f "$INSTALL_DIR/deploy/docker-compose.yml" exec -T web bun run --cwd apps/web owner:create "${EMAIL}" "${PASSWORD}" "Operator Utama" 2>/dev/null || \
 docker compose -f "$INSTALL_DIR/deploy/docker-compose.yml" exec -T postgres psql -U zeuhost -d zeuhost >/dev/null 2>&1 <<SQL || true
 INSERT INTO "User" (id, email, name, role, status, "emailVerified", "createdAt", "updatedAt")
 VALUES (
@@ -210,7 +239,6 @@ VALUES (
 )
 ON CONFLICT (email) DO UPDATE SET role = 'OWNER', status = 'ACTIVE';
 SQL
-
 # Final Summary Box
 echo -e "\n${GREEN}${BOLD}================================================================${NC}"
 echo -e "${GREEN}${BOLD}  ZeuHost Berhasil Terpasang & Aktif 24 Jam Non-Stop!${NC}"
